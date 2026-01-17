@@ -58,6 +58,16 @@ export const HealthResponseSchema = z.object({
 
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 
+export const ConfigResponseSchema = z.object({
+  model: z.string(),
+  has_api_key: z.boolean(),
+  cli_available: z.boolean(),
+  mcp_servers: z.array(z.string()),
+  version: z.string(),
+});
+
+export type ConfigResponse = z.infer<typeof ConfigResponseSchema>;
+
 // ============================================
 // Error Types (RFC 7807)
 // ============================================

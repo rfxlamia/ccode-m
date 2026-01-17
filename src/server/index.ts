@@ -1,4 +1,5 @@
 import fastify from 'fastify';
+import { configRoutes } from './routes/config.js';
 
 const server = fastify({ logger: true });
 
@@ -6,6 +7,9 @@ const server = fastify({ logger: true });
 server.get('/api/health', () => {
   return { status: 'ok', version: '0.1.0-beta' };
 });
+
+// Register config routes
+server.register(configRoutes);
 
 // 🔴 CRITICAL: Bind to 127.0.0.1 ONLY (CVE-2025-49596)
 server.listen({ port: 3000, host: '127.0.0.1' }, (err, address) => {

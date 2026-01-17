@@ -2,11 +2,11 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist/server",
-    "rootDir": "./src/server",
+    "rootDir": "./src",
     "types": ["node"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext"
   },
   "include": ["src/server/**/*", "src/shared/**/*"],
-  "exclude": ["src/server/**/*.test.ts"]
+  "exclude": ["src/server/**/*.test.ts", "src/shared/**/*.test.ts"]
 }
