@@ -4,12 +4,18 @@
     // File Layout
     // "rootDir": "./src",
     // "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/client/*"],
+      "@shared/*": ["src/shared/*"],
+      "@server/*": ["src/server/*"]
+    },
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
     "module": "esnext",
     "target": "es2022",
-    "types": ["vitest/globals", "@testing-library/jest-dom"],
+    "types": ["@testing-library/jest-dom"],
     // For nodejs:
     // "lib": ["esnext"],
     // "types": ["node"],
