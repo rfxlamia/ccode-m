@@ -9,6 +9,7 @@ import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { checkCliAvailable } from './config.js';
 import { parseCLIOutput, clearSessionBuffer } from './cli-parser.js';
+import { ErrorCodes, createErrorMessage, type ErrorCode } from '@shared/errors.js';
 import type { CLISession, SpawnOptions } from '@shared/types.js';
 
 // ============================================
@@ -45,13 +46,41 @@ const sessions = new Map<string, CLISession>();
 // ============================================
 
 /**
- * Spawn a new Claude CLI session.
+ * Spawn a new Claude CLI session as a subprocess.
  *
- * @param projectPath - Working directory for the CLI
- * @param sessionId - Optional session ID (generated if not provided)
- * @param options - Spawn options (continue/resume flags)
- * @returns CLISession
- * @throws Error if CLI is not available or spawn fails
+ * Creates a new CLI process with streaming JSON I/O. The process runs in the specified
+ * project directory and emits parsed events through the session's EventEmitter.
+ *
+ * The session uses `--input-format stream-json` for streaming stdin writes and
+ * `--output-format stream-json` for real-time SSE event parsing.
+ *
+ * @param projectPath - Absolute path to project directory (CLI working directory)
+ * @param sessionId - Optional session ID (auto-generated UUID if not provided)
+ * @param options - Spawn options for session continuity
+ * @param options.continue - If true, adds `--continue` flag to resume last conversation
+ * @param options.resume - If provided, adds `--resume <id>` to resume specific session
+ *
+ * @returns CLISession object with process handle, emitter, and metadata
+ *
+ * @throws {Error} CLI_NOT_FOUND - Claude CLI executable not available in PATH
+ *
+ * @example
+ * ```ts
+ * // Start new session
+ * const session = spawnCLISession('/home/user/project');
+ *
+ * // Listen for CLI events
+ * session.emitter.on('cli-event', (event) => {
+ *   if (event.type === 'message') {
+ *     console.log('Assistant:', event.content);
+ *   }
+ * });
+ *
+ * // Continue last conversation
+ * const resumedSession = spawnCLISession('/home/user/project', undefined, {
+ *   continue: true
+ * });
+ * ```
  */
 export function spawnCLISession(
   projectPath: string,
@@ -60,7 +89,7 @@ export function spawnCLISession(
 ): CLISession {
   // 1. Check CLI available FIRST - fail fast if unavailable
   if (!checkCliAvailable()) {
-    const error = new Error('CLI_NOT_FOUND: Claude CLI not available');
+    const error = new Error(createErrorMessage(ErrorCodes.CLI_NOT_FOUND));
     log.error({ projectPath }, error.message);
     throw error;
   }
@@ -111,21 +140,21 @@ export function spawnCLISession(
     if (stderrText) {
       log.warn({ sessionId: id, stderr: stderrText }, 'CLI stderr');
       // Emit as SSE error event per AC #6
-      session.emitter.emit('cli-event', createErrorEvent(stderrText, 'CLI_STDERR'));
+      session.emitter.emit('cli-event', createErrorEvent(stderrText, ErrorCodes.CLI_STDERR));
     }
   });
 
   // 7. Handle process errors (ENOENT, EACCES, etc.) - emit as SSE error
   cliProcess.on('error', (err: NodeJS.ErrnoException) => {
-    let errorCode = 'CLI_ERROR';
+    let errorCode: ErrorCode = ErrorCodes.CLI_ERROR;
 
     // Specific error handling per AC #6
     if (err.code === 'ENOENT') {
-      errorCode = 'CLI_NOT_FOUND';
-      log.error({ sessionId: id, error: err.message }, 'Claude CLI executable not found');
+      errorCode = ErrorCodes.CLI_NOT_FOUND;
+      log.error({ sessionId: id, error: err.message }, createErrorMessage(errorCode));
     } else if (err.code === 'EACCES') {
-      errorCode = 'CLI_PERMISSION_DENIED';
-      log.error({ sessionId: id, error: err.message }, 'Permission denied to execute Claude CLI');
+      errorCode = ErrorCodes.CLI_PERMISSION_DENIED;
+      log.error({ sessionId: id, error: err.message }, createErrorMessage(errorCode));
     } else {
       log.error({ sessionId: id, error: err.message, code: err.code }, 'CLI process error');
     }
@@ -143,7 +172,7 @@ export function spawnCLISession(
     if (code !== null && code !== 0) {
       session.emitter.emit('cli-event', createErrorEvent(
         `CLI exited with code ${String(code)}`,
-        'CLI_EXIT_ERROR'
+        ErrorCodes.CLI_EXIT_ERROR
       ));
     }
 
@@ -181,11 +210,33 @@ export function getActiveSessionIds(): string[] {
 // ============================================
 
 /**
- * Terminate a CLI session gracefully.
- * Uses SIGTERM → timeout → SIGKILL pattern.
+ * Terminate a CLI session gracefully with fallback to force kill.
  *
- * @param sessionId - The session to terminate
- * @returns true if session was found and terminated
+ * Implements a two-phase shutdown pattern:
+ * 1. Send SIGTERM and wait up to 1 second for graceful exit
+ * 2. Send SIGKILL if process doesn't respond
+ *
+ * Also clears the session's line buffer in cli-parser and removes
+ * the session from the active sessions map.
+ *
+ * @param sessionId - The session ID to terminate
+ *
+ * @returns Promise resolving to true if session was found and terminated, false otherwise
+ *
+ * @example
+ * ```ts
+ * // Graceful shutdown
+ * const terminated = await terminateSession('session-123');
+ * if (terminated) {
+ *   console.log('Session terminated successfully');
+ * }
+ *
+ * // Shutdown all sessions on server exit
+ * process.on('SIGTERM', async () => {
+ *   await terminateAllSessions();
+ *   process.exit(0);
+ * });
+ * ```
  */
 export async function terminateSession(sessionId: string): Promise<boolean> {
   const session = sessions.get(sessionId);
@@ -245,10 +296,14 @@ export async function terminateAllSessions(): Promise<void> {
 
 /**
  * Create an error SSE event from a process error.
+ *
+ * @param errorMessage - Human-readable error description
+ * @param errorCode - Error code from ErrorCodes catalog
+ * @returns SSE error event object
  */
 export function createErrorEvent(
   errorMessage: string,
-  errorCode: string = 'CLI_ERROR'
+  errorCode: string = ErrorCodes.CLI_ERROR
 ): { type: 'error'; error_message: string; error_code: string } {
   return {
     type: 'error',

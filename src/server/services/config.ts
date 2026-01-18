@@ -105,7 +105,31 @@ export async function hasApiKey(): Promise<boolean> {
 }
 
 /**
- * Load settings with deep merge: local > project > user
+ * Load and merge settings from multiple sources with precedence hierarchy.
+ *
+ * Settings are loaded from three locations and deep-merged with this precedence:
+ * 1. User settings: `~/.claude/settings.json` (lowest priority)
+ * 2. Project settings: `./.claude/settings.json` (medium priority)
+ * 3. Local settings: `./.claude/settings.local.json` (highest priority)
+ *
+ * The deep merge handles:
+ * - Nested objects: recursively merged
+ * - Arrays: concatenated and deduplicated
+ * - Primitives: later values override earlier ones
+ *
+ * @returns Merged settings object (empty object if no settings files exist)
+ *
+ * @example
+ * ```ts
+ * // Load settings to get model preference
+ * const settings = await loadSettings();
+ * console.log(settings.model); // 'claude-sonnet-4-20250514'
+ *
+ * // Check permissions config
+ * if (settings.permissions?.defaultMode === 'plan') {
+ *   console.log('Running in plan mode');
+ * }
+ * ```
  */
 export async function loadSettings(): Promise<Settings> {
   const userSettings = await readJSON<Settings>(SETTINGS_PATH);

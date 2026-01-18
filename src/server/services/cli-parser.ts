@@ -39,12 +39,33 @@ const sessionBuffers = new Map<string, string>();
 // ============================================
 
 /**
- * Parse CLI output data for a specific session.
- * Handles partial lines across multiple data chunks.
+ * Parse CLI output data for a specific session into SSE events.
  *
- * @param sessionId - The session this data belongs to
- * @param data - Raw buffer from stdout
- * @returns Array of parsed SSE events
+ * Handles newline-delimited JSON streaming with stateful buffering for partial lines.
+ * Each session maintains its own buffer to handle multi-chunk data correctly.
+ *
+ * The parser:
+ * - Splits buffer into lines (newline-delimited)
+ * - Keeps incomplete last line in session buffer for next chunk
+ * - Parses each complete line as JSON
+ * - Maps CLI event format to SSEEvent via mapCLIEventToSSE()
+ * - Skips empty lines and logs parse errors
+ *
+ * @param sessionId - The session this data belongs to (for buffer isolation)
+ * @param data - Raw buffer from CLI stdout
+ *
+ * @returns Array of successfully parsed and mapped SSE events (may be empty)
+ *
+ * @example
+ * ```ts
+ * // First chunk with partial line
+ * const events1 = parseCLIOutput('session-1', Buffer.from('{"type":"mess'));
+ * // Returns: [] (incomplete line buffered)
+ *
+ * // Second chunk completes the line
+ * const events2 = parseCLIOutput('session-1', Buffer.from('age"}\n'));
+ * // Returns: [{ type: 'message', content: '...' }]
+ * ```
  */
 export function parseCLIOutput(sessionId: string, data: Buffer): SSEEvent[] {
   // Get or create buffer for this session
@@ -81,12 +102,38 @@ export function parseCLIOutput(sessionId: string, data: Buffer): SSEEvent[] {
 // ============================================
 
 /**
- * Map raw CLI event to SSEEvent type.
- * Validates against Zod schema and handles known event types.
+ * Map raw CLI event JSON to typed SSEEvent.
  *
- * @param cliEvent - Raw parsed JSON from CLI
- * @param sessionId - For error logging
- * @returns SSEEvent or null if not mappable
+ * Handles multiple CLI event formats and transforms them into our standardized
+ * SSEEvent types defined in shared/types.ts. Validates output against Zod schema.
+ *
+ * Supported event types:
+ * - `assistant`/`message` → SSEEvent type: 'message' or 'tool_use'
+ * - `result`/`complete` → SSEEvent type: 'complete' (with token usage)
+ * - `tool_use`/`tool_use_calls` → SSEEvent type: 'tool_use'
+ * - `tool_result`/`tool_results` → SSEEvent type: 'tool_result'
+ * - `progress`/`todo` → SSEEvent type: 'progress' (TodoWrite events)
+ * - `artifact`/`file` → SSEEvent type: 'artifact' (file changes)
+ * - `system`/`init` → Skipped (internal CLI events)
+ *
+ * @param cliEvent - Raw parsed JSON object from CLI stdout
+ * @param sessionId - Session ID for error logging context
+ *
+ * @returns Mapped SSEEvent if successful, null if unmappable or validation fails
+ *
+ * @example
+ * ```ts
+ * const cliEvent = {
+ *   type: 'assistant',
+ *   message: {
+ *     role: 'assistant',
+ *     content: [{ type: 'text', text: 'Hello!' }]
+ *   }
+ * };
+ *
+ * const sseEvent = mapCLIEventToSSE(cliEvent, 'session-123');
+ * // Returns: { type: 'message', content: 'Hello!' }
+ * ```
  */
 export function mapCLIEventToSSE(cliEvent: unknown, sessionId: string): SSEEvent | null {
   // Validate basic structure

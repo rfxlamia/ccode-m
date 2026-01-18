@@ -7,45 +7,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { sendMessage, endInput, isStdinWritable, getMessageFormat } from './cli-protocol.js';
 import type { CLISession } from '@shared/types.js';
-import { EventEmitter } from 'node:events';
+import { createMockSession } from '../__tests__/helpers/mocks.js';
 
 // Mock the cli-process module
 const mockSessions = new Map<string, CLISession>();
+
+// Shared mock spies for stdin methods
 const mockWrite = vi.fn().mockReturnValue(true);
 const mockEnd = vi.fn();
 const mockOnce = vi.fn();
-
-function createMockSession(sessionId: string, options?: {
-  destroyed?: boolean;
-  closed?: boolean;
-  mode?: 'streaming' | 'per-message';
-}): CLISession {
-  const stdin = {
-    write: mockWrite,
-    end: mockEnd,
-    once: mockOnce,
-    destroyed: options?.destroyed ?? false,
-    closed: options?.closed ?? false,
-  };
-
-  return {
-    process: {
-      stdin,
-      stdout: null,
-      stderr: null,
-      pid: 12345,
-      kill: vi.fn(),
-      killed: false,
-      on: vi.fn(),
-      once: vi.fn(),
-    } as unknown as CLISession['process'],
-    sessionId,
-    projectPath: '/test',
-    emitter: new EventEmitter(),
-    createdAt: new Date(),
-    mode: options?.mode ?? 'streaming',
-  };
-}
 
 vi.mock('./cli-process.js', () => ({
   getSession: (sessionId: string) => mockSessions.get(sessionId),
@@ -57,6 +27,7 @@ describe('sendMessage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSessions.clear();
+    mockWrite.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -69,7 +40,7 @@ describe('sendMessage', () => {
   });
 
   it('returns false if stdin is destroyed', () => {
-    const session = createMockSession('test-session', { destroyed: true });
+    const session = createMockSession('test-session', { destroyed: true, mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     const result = sendMessage('test-session', 'Hello');
@@ -77,7 +48,7 @@ describe('sendMessage', () => {
   });
 
   it('returns false if stdin is closed', () => {
-    const session = createMockSession('test-session', { closed: true });
+    const session = createMockSession('test-session', { closed: true, mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     const result = sendMessage('test-session', 'Hello');
@@ -85,7 +56,7 @@ describe('sendMessage', () => {
   });
 
   it('formats message as JSON for streaming mode', () => {
-    const session = createMockSession('test-session', { mode: 'streaming' });
+    const session = createMockSession('test-session', { mode: 'streaming', mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     const result = sendMessage('test-session', 'Hello');
@@ -98,7 +69,7 @@ describe('sendMessage', () => {
   });
 
   it('sends plain text for per-message mode', () => {
-    const session = createMockSession('test-session', { mode: 'per-message' });
+    const session = createMockSession('test-session', { mode: 'per-message', mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     const result = sendMessage('test-session', 'Hello');
@@ -109,7 +80,7 @@ describe('sendMessage', () => {
 
   it('handles backpressure by listening for drain', () => {
     mockWrite.mockReturnValueOnce(false);
-    const session = createMockSession('test-session');
+    const session = createMockSession('test-session', { mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     const result = sendMessage('test-session', 'Hello');
@@ -131,7 +102,7 @@ describe('endInput', () => {
   });
 
   it('calls stdin.end() for valid session', () => {
-    const session = createMockSession('test-session');
+    const session = createMockSession('test-session', { mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     const result = endInput('test-session');
@@ -141,7 +112,7 @@ describe('endInput', () => {
   });
 
   it('returns false if stdin is destroyed', () => {
-    const session = createMockSession('test-session', { destroyed: true });
+    const session = createMockSession('test-session', { destroyed: true, mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     const result = endInput('test-session');
@@ -149,7 +120,7 @@ describe('endInput', () => {
   });
 
   it('returns false if stdin is closed', () => {
-    const session = createMockSession('test-session', { closed: true });
+    const session = createMockSession('test-session', { closed: true, mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     const result = endInput('test-session');
@@ -168,21 +139,21 @@ describe('isStdinWritable', () => {
   });
 
   it('returns true for session with open stdin', () => {
-    const session = createMockSession('test-session');
+    const session = createMockSession('test-session', { mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     expect(isStdinWritable('test-session')).toBe(true);
   });
 
   it('returns false for session with destroyed stdin', () => {
-    const session = createMockSession('test-session', { destroyed: true });
+    const session = createMockSession('test-session', { destroyed: true, mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     expect(isStdinWritable('test-session')).toBe(false);
   });
 
   it('returns false for session with closed stdin', () => {
-    const session = createMockSession('test-session', { closed: true });
+    const session = createMockSession('test-session', { closed: true, mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     expect(isStdinWritable('test-session')).toBe(false);
@@ -200,14 +171,14 @@ describe('getMessageFormat', () => {
   });
 
   it('returns streaming for session in streaming mode', () => {
-    const session = createMockSession('test-session', { mode: 'streaming' });
+    const session = createMockSession('test-session', { mode: 'streaming', mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     expect(getMessageFormat('test-session')).toBe('streaming');
   });
 
   it('returns plain for session in per-message mode', () => {
-    const session = createMockSession('test-session', { mode: 'per-message' });
+    const session = createMockSession('test-session', { mode: 'per-message', mockWrite, mockEnd, mockOnce });
     mockSessions.set('test-session', session);
 
     expect(getMessageFormat('test-session')).toBe('plain');

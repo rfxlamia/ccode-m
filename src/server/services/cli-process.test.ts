@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ChildProcess } from 'node:child_process';
-import { EventEmitter } from 'node:events';
+import { createMockChildProcess, type MockProcess } from '../__tests__/helpers/mocks.js';
 
 // Hoisted mock function
 const mockSpawn = vi.hoisted(() => vi.fn());
@@ -26,41 +26,7 @@ vi.mock('./cli-parser.js', () => ({
   parseCLIOutput: vi.fn().mockReturnValue([]),
   clearSessionBuffer: vi.fn(),
   default: {},
-}));
-
-// Type for mock process
-interface MockProcess {
-  stdout: EventEmitter;
-  stderr: EventEmitter;
-  stdin: {
-    end: ReturnType<typeof vi.fn>;
-    write: ReturnType<typeof vi.fn>;
-    destroyed?: boolean;
-    closed?: boolean;
-  };
-  kill: ReturnType<typeof vi.fn>;
-  on: ReturnType<typeof vi.fn>;
-  once: ReturnType<typeof vi.fn>;
-  killed: boolean;
-}
-
-// Create mock process factory
-function createMockProcess(): MockProcess {
-  return {
-    stdout: new EventEmitter(),
-    stderr: new EventEmitter(),
-    stdin: {
-      end: vi.fn(),
-      write: vi.fn().mockReturnValue(true),
-      destroyed: false,
-      closed: false,
-    },
-    kill: vi.fn(),
-    on: vi.fn(),
-    once: vi.fn(),
-    killed: false,
-  };
-}
+}))
 
 // Now import the modules
 import { spawnCLISession, terminateSession, getSession, createErrorEvent } from './cli-process.js';
@@ -73,7 +39,7 @@ describe('spawnCLISession', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-session-id');
-    mockProcess = createMockProcess();
+    mockProcess = createMockChildProcess();
     mockSpawn.mockReturnValue(mockProcess as unknown as ChildProcess);
   });
 
@@ -177,7 +143,7 @@ describe('terminateSession', () => {
     vi.clearAllMocks();
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-session-id');
     vi.mocked(checkCliAvailable).mockReturnValue(true);
-    mockProcess = createMockProcess();
+    mockProcess = createMockChildProcess();
     mockSpawn.mockReturnValue(mockProcess as unknown as ChildProcess);
   });
 
