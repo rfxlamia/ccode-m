@@ -14,7 +14,7 @@
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "build:cli": "tsc -p tsconfig.cli.json",
-    "start": "node dist/server/index.js",
+    "start": "tsx src/server/index.ts",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write src/",

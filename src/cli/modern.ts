@@ -13,7 +13,9 @@ import open from 'open';
 import { getPidFilePath, getPortFilePath } from '../server/services/port-manager.js';
 
 const CLAUDE_DIR = path.join(process.env.HOME || '', '.claude');
-const SERVER_SCRIPT = path.join(CLAUDE_DIR, 'modern', 'dist', 'server', 'index.js');
+// Use tsx to run TypeScript source directly (handles path aliases)
+const SERVER_SCRIPT = path.join(CLAUDE_DIR, 'modern', 'src', 'server', 'index.ts');
+const USE_TSX = true; // Run from source for proper path alias resolution
 
 /**
  * Check if the server process is currently running.
@@ -74,8 +76,9 @@ async function startServer(): Promise<{ port: number; serverProcess: ReturnType<
 
   console.log('Starting GUI server...');
 
-  // Spawn attached (exits when parent CLI exits - required for graceful shutdown)
-  const serverProcess = spawn('node', [SERVER_SCRIPT], {
+  // Use tsx to run TypeScript source (handles path aliases properly)
+  // npx tsx is available since tsx is a dev dependency
+  const serverProcess = spawn('npx', ['tsx', SERVER_SCRIPT], {
     cwd: path.join(CLAUDE_DIR, 'modern'),
     stdio: 'inherit',
     detached: false,
