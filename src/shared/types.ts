@@ -54,6 +54,7 @@ export type SSEEvent = z.infer<typeof SSEEventSchema>;
 export const HealthResponseSchema = z.object({
   status: z.literal('ok'),
   version: z.string(),
+  cli_available: z.boolean(),
 });
 
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;

@@ -62,13 +62,19 @@ describe('src/shared/types.ts', () => {
 
   describe('HealthResponseSchema', () => {
     it('should validate valid health response', () => {
-      const response = { status: 'ok', version: '0.1.0-beta' };
+      const response = { status: 'ok', version: '0.1.0-beta', cli_available: true };
       const result = HealthResponseSchema.safeParse(response);
       expect(result.success).toBe(true);
     });
 
     it('should reject invalid status', () => {
-      const response = { status: 'error', version: '0.1.0-beta' };
+      const response = { status: 'error', version: '0.1.0-beta', cli_available: true };
+      const result = HealthResponseSchema.safeParse(response);
+      expect(result.success).toBe(false);
+    });
+
+    it('should require cli_available field', () => {
+      const response = { status: 'ok', version: '0.1.0-beta' };
       const result = HealthResponseSchema.safeParse(response);
       expect(result.success).toBe(false);
     });
