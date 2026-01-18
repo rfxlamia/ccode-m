@@ -9,12 +9,10 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import open from 'open';
 import { getPidFilePath, getPortFilePath } from '../server/services/port-manager.js';
 
 const CLAUDE_DIR = path.join(process.env.HOME || '', '.claude');
-const __filename = fileURLToPath(import.meta.url);
 const SERVER_SCRIPT = path.join(CLAUDE_DIR, 'modern', 'dist', 'server', 'index.js');
 
 /**
@@ -63,10 +61,10 @@ async function getExistingPort(): Promise<number | null> {
  * Cleans any stale PID/port files, spawns the server process,
  * and waits for the port file to be written.
  *
- * @returns The port number the server is running on
+ * @returns Object with port number and server process
  * @throws Error if server fails to start within timeout
  */
-async function startServer(): Promise<number> {
+async function startServer(): Promise<{ port: number; serverProcess: ReturnType<typeof spawn> }> {
   // Clean stale files before starting
   const pidPath = getPidFilePath();
   const portPath = getPortFilePath();
@@ -77,7 +75,7 @@ async function startServer(): Promise<number> {
   console.log('Starting GUI server...');
 
   // Spawn attached (exits when parent CLI exits - required for graceful shutdown)
-  spawn('node', [SERVER_SCRIPT], {
+  const serverProcess = spawn('node', [SERVER_SCRIPT], {
     cwd: path.join(CLAUDE_DIR, 'modern'),
     stdio: 'inherit',
     detached: false,
@@ -88,7 +86,7 @@ async function startServer(): Promise<number> {
     await new Promise((resolve) => setTimeout(resolve, 100));
     const port = await getExistingPort();
     if (port) {
-      return port;
+      return { port, serverProcess };
     }
   }
 
@@ -103,10 +101,12 @@ async function startServer(): Promise<number> {
  * 2. If running, use existing port; otherwise start new server
  * 3. Open browser to the GUI URL
  * 4. Report URL to user
+ * 5. Keep process alive while server runs (for graceful shutdown)
  */
 async function main(): Promise<void> {
   try {
     let port: number;
+    let serverProcess: ReturnType<typeof spawn> | null = null;
 
     if (await isServerRunning()) {
       const existingPort = await getExistingPort();
@@ -116,7 +116,9 @@ async function main(): Promise<void> {
       port = existingPort;
       console.log(`GUI server already running on port ${String(port)}`);
     } else {
-      port = await startServer();
+      const result = await startServer();
+      port = result.port;
+      serverProcess = result.serverProcess;
       console.log(`GUI server started on port ${String(port)}`);
     }
 
@@ -125,6 +127,27 @@ async function main(): Promise<void> {
     await open(url);
 
     console.log(`GUI available at ${url}`);
+
+    // If we started a new server, keep this process alive
+    // Server will exit when parent exits (attached mode)
+    if (serverProcess) {
+      // Handle graceful shutdown
+      const shutdown = (): void => {
+        console.log('\nShutting down GUI server...');
+        serverProcess.kill('SIGTERM');
+        process.exit(0);
+      };
+
+      process.on('SIGINT', shutdown);
+      process.on('SIGTERM', shutdown);
+
+      // Wait for server process to exit
+      await new Promise<void>((resolve) => {
+        serverProcess.on('exit', () => {
+          resolve();
+        });
+      });
+    }
   } catch (error) {
     console.error(
       'Failed to launch GUI:',
@@ -134,7 +157,5 @@ async function main(): Promise<void> {
   }
 }
 
-// Only run main() when executed directly (not when imported as a module for testing)
-if (process.argv[1] === __filename) {
-  void main();
-}
+// Run main() - this file is only executed as CLI entry point
+void main();
