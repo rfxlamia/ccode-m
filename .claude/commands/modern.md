@@ -1,6 +1,6 @@
 ---
 description: Launch Claude Code GUI in browser
-allowed-tools: Bash(npm:*, npx:*)
+allowed-tools: Bash(npm:*, npx:*, export:*)
 ---
 
 Launch the Claude Code GUI server and open in browser.
@@ -8,7 +8,7 @@ Launch the Claude Code GUI server and open in browser.
 Run the full development server (Vite frontend + Fastify backend):
 
 ```bash
-CLAUDE_PROJECT_PATH="$PWD" && cd ~/.claude/modern && npm run dev
+export CLAUDE_PROJECT_PATH="$PWD" && cd ~/.claude/modern && npm run dev
 ```
 
 This starts:
