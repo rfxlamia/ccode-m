@@ -81,3 +81,30 @@ export const ProblemDetailsSchema = z.object({
 });
 
 export type ProblemDetails = z.infer<typeof ProblemDetailsSchema>;
+
+// ============================================
+// CLI Subprocess Types
+// ============================================
+
+import { ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+
+/**
+ * CLI Session - tracks a spawned Claude CLI subprocess
+ */
+export interface CLISession {
+  process: ChildProcess;
+  sessionId: string;
+  projectPath: string;
+  emitter: EventEmitter;
+  createdAt: Date;
+  mode: 'streaming' | 'per-message';
+}
+
+/**
+ * Options for spawning CLI session
+ */
+export interface SpawnOptions {
+  continue?: boolean;  // Use --continue flag for session continuity
+  resume?: string;     // Use --resume <id> for specific session
+}
