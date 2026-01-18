@@ -21,7 +21,8 @@ import {
   cleanupProcessFiles,
   DEFAULT_PORT,
 } from './services/port-manager.js';
-import { spawnCLISession, terminateSession, type CLISession } from './services/cli-process.js';
+import { spawnCLISession, terminateSession } from './services/cli-process.js';
+import type { CLISession } from '@shared/types.js';
 
 const server = fastify({ logger: true });
 
@@ -129,7 +130,7 @@ const shutdown = async (signal: string): Promise<void> => {
   }
 
   // Terminate global CLI session if exists
-  if (globalSession) {
+  if (globalSession !== null) {
     await terminateSession(globalSession.sessionId);
   }
 

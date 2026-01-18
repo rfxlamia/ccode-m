@@ -35,16 +35,16 @@ export const chatRoutes: FastifyPluginCallback = (server, _opts, done) => {
    * GET /api/chat/session
    * Get the global session ID.
    */
-  server.get('/api/chat/session', async (request, reply) => {
+  server.get('/api/chat/session', async (_request, reply) => {
     // Import getGlobalSession from index.ts
-    const { getGlobalSession } = await import('../index.js');
-    const session = getGlobalSession();
+    const indexModule = await import('../index.js') as { getGlobalSession: () => { sessionId: string } | null };
+    const session = indexModule.getGlobalSession();
 
-    if (!session) {
-      return reply.status(503).send({ error: 'CLI session not ready' });
+    if (session === null) {
+      return await reply.status(503).send({ error: 'CLI session not ready' });
     }
 
-    return { sessionId: session.sessionId };
+    return await reply.send({ sessionId: session.sessionId });
   });
 
   /**
@@ -54,35 +54,38 @@ export const chatRoutes: FastifyPluginCallback = (server, _opts, done) => {
   server.post<{
     Body: { message: string; sessionId: string };
   }>('/api/chat', async (request, reply) => {
-    const { message, sessionId } = request.body || {};
+    const { message, sessionId } = request.body;
 
     // Validation: message required
     if (!message || typeof message !== 'string' || message.trim() === '') {
-      return reply.status(400).send({ error: 'message is required' });
+      return await reply.status(400).send({ error: 'message is required' });
     }
 
     // Validation: sessionId required (global session provided by server)
     if (!sessionId || typeof sessionId !== 'string') {
-      return reply.status(400).send({ error: 'sessionId is required' });
+      return await reply.status(400).send({ error: 'sessionId is required' });
     }
 
     // Fix F7: Track active requests for graceful shutdown (after validation)
-    const { incrementActiveRequests, decrementActiveRequests } = await import('../index.js');
-    incrementActiveRequests();
+    const indexModule = await import('../index.js') as {
+      incrementActiveRequests: () => void;
+      decrementActiveRequests: () => void;
+    };
+    indexModule.incrementActiveRequests();
 
     try {
       // Get session from cli-process.ts
       const session = getSession(sessionId);
       if (!session) {
         log.error({ sessionId }, 'Session not found');
-        return reply.status(404).send({ error: 'Session not found' });
+        return await reply.status(404).send({ error: 'Session not found' });
       }
 
       // Send message to CLI
       const sent = sendMessage(sessionId, message);
       if (!sent) {
         log.error({ sessionId, message }, 'Failed to send message to CLI');
-        return reply.status(500).send({ error: 'Failed to send message to CLI' });
+        return await reply.status(500).send({ error: 'Failed to send message to CLI' });
       }
 
       log.info({ sessionId, message: message.substring(0, 50) }, 'Message sent to CLI');
@@ -147,14 +150,14 @@ export const chatRoutes: FastifyPluginCallback = (server, _opts, done) => {
       const result = await responsePromise;
       log.info({ sessionId, replyPreview: result.reply.substring(0, 50) }, 'CLI response received');
 
-      return reply.send(result);
+      return await reply.send(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       log.error({ sessionId, error: errorMessage }, 'Error processing chat request');
-      return reply.status(500).send({ error: errorMessage });
+      return await reply.status(500).send({ error: errorMessage });
     } finally {
       // Fix F7: Decrement counter when request completes
-      decrementActiveRequests();
+      indexModule.decrementActiveRequests();
     }
   });
 
