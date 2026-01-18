@@ -3,10 +3,367 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Claude Code Modern</title>
+    <title>Epic 1 Infrastructure Validation</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #1a1a1a;
+        color: #e0e0e0;
+        padding: 20px;
+        line-height: 1.6;
+      }
+
+      #validation-test {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        color: #ff6b35;
+        margin-bottom: 10px;
+        font-size: 24px;
+      }
+
+      .subtitle {
+        color: #888;
+        margin-bottom: 30px;
+        font-size: 14px;
+      }
+
+      #chat-container {
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 8px;
+        padding: 20px;
+        max-height: 400px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        scroll-behavior: smooth;
+      }
+
+      .message {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 6px;
+        animation: fadeIn 0.3s ease-in;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .message.user {
+        background: #1a4d2e;
+        border-left: 3px solid #4ade80;
+      }
+
+      .message.assistant {
+        background: #1e3a8a;
+        border-left: 3px solid #60a5fa;
+      }
+
+      .message.error {
+        background: #7f1d1d;
+        border-left: 3px solid #ef4444;
+      }
+
+      .message-label {
+        font-weight: bold;
+        margin-bottom: 5px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .message.user .message-label { color: #4ade80; }
+      .message.assistant .message-label { color: #60a5fa; }
+      .message.error .message-label { color: #ef4444; }
+
+      .message-content {
+        color: #e0e0e0;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+
+      #chat-form {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
+      #message-input {
+        flex: 1;
+        padding: 12px;
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 6px;
+        color: #e0e0e0;
+        font-size: 14px;
+        font-family: inherit;
+      }
+
+      #message-input:focus {
+        outline: none;
+        border-color: #ff6b35;
+      }
+
+      button {
+        padding: 12px 24px;
+        background: #ff6b35;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+        transition: background 0.2s;
+      }
+
+      button:hover {
+        background: #ff5520;
+      }
+
+      button:disabled {
+        background: #555;
+        cursor: not-allowed;
+      }
+
+      #status {
+        padding: 10px;
+        border-radius: 6px;
+        font-size: 14px;
+        min-height: 20px;
+      }
+
+      #status.sending {
+        background: #1e3a8a;
+        color: #60a5fa;
+      }
+
+      #status.idle {
+        background: #2a2a2a;
+        color: #888;
+      }
+
+      .test-suggestions {
+        margin-top: 20px;
+        padding: 15px;
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 6px;
+      }
+
+      .test-suggestions h3 {
+        color: #ff6b35;
+        font-size: 14px;
+        margin-bottom: 10px;
+      }
+
+      .test-suggestions ul {
+        list-style: none;
+        padding-left: 0;
+      }
+
+      .test-suggestions li {
+        padding: 5px 0;
+        color: #888;
+        font-size: 13px;
+      }
+
+      .test-suggestions code {
+        background: #1a1a1a;
+        padding: 2px 6px;
+        border-radius: 3px;
+        color: #4ade80;
+        font-family: monospace;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="./main.tsx"></script>
+    <div id="validation-test">
+      <h1>🧪 Epic 1 Infrastructure Validation</h1>
+      <p class="subtitle">Testing CLI subprocess spawn, message forwarding, and conversation continuity</p>
+
+      <div id="chat-container">
+        <div class="message assistant">
+          <div class="message-label">System</div>
+          <div class="message-content">Validation UI ready. Type a message to test the CLI infrastructure.</div>
+        </div>
+      </div>
+
+      <form id="chat-form">
+        <input
+          type="text"
+          id="message-input"
+          placeholder="Type message to test CLI..."
+          autocomplete="off"
+        />
+        <button type="submit">Send</button>
+      </form>
+
+      <div id="status" class="idle">Ready to send messages</div>
+
+      <div class="test-suggestions">
+        <h3>📋 Validation Test Sequence</h3>
+        <ul>
+          <li>1. Send: <code>Hello</code> → Verify CLI responds</li>
+          <li>2. Send: <code>What did I just say?</code> → Verify context continuity</li>
+          <li>3. Check server console for same sessionId on both messages</li>
+          <li>4. Run: <code>ps aux | grep claude</code> → Verify single PID</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      // Get DOM elements
+      const form = document.getElementById('chat-form');
+      const input = document.getElementById('message-input');
+      const chatContainer = document.getElementById('chat-container');
+      const status = document.getElementById('status');
+      const submitButton = form.querySelector('button[type="submit"]');
+
+      // Store sessionId from server
+      let sessionId = null;
+
+      // Fix F15: Max retry counter to prevent infinite loop
+      let sessionRetryCount = 0;
+      const MAX_SESSION_RETRIES = 10; // 10 seconds max wait (10 retries * 1s interval)
+
+      // Fetch session ID on load
+      async function initSession() {
+        try {
+          // Check CLI availability
+          const healthResponse = await fetch('/api/health');
+          const health = await healthResponse.json();
+
+          if (!health.cli_available) {
+            updateStatus('Warning: CLI not available in PATH', 'error');
+            return;
+          }
+
+          // Get global session ID
+          const sessionResponse = await fetch('/api/chat/session');
+
+          if (!sessionResponse.ok) {
+            // Fix F15: Check retry limit
+            if (sessionRetryCount >= MAX_SESSION_RETRIES) {
+              updateStatus('Failed to connect: CLI session not ready after 10s', 'error');
+              return;
+            }
+
+            sessionRetryCount++;
+            updateStatus(`Waiting for CLI session (${sessionRetryCount}/${MAX_SESSION_RETRIES})...`, 'sending');
+            // Retry after 1 second
+            setTimeout(initSession, 1000);
+            return;
+          }
+
+          const sessionData = await sessionResponse.json();
+          sessionId = sessionData.sessionId;
+
+          updateStatus(`CLI session ready: ${sessionId.substring(0, 8)}...`, 'idle');
+        } catch (error) {
+          console.error('Failed to initialize session:', error);
+          updateStatus('Error initializing session', 'error');
+        }
+      }
+
+      // Add message to chat UI
+      function addMessage(label, content, type = 'assistant') {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'message-label';
+        labelDiv.textContent = label;
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.textContent = content;
+
+        messageDiv.appendChild(labelDiv);
+        messageDiv.appendChild(contentDiv);
+        chatContainer.appendChild(messageDiv);
+
+        // Auto-scroll to bottom
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+
+      // Update status bar
+      function updateStatus(message, type = 'idle') {
+        status.textContent = message;
+        status.className = type;
+      }
+
+      // Handle form submission
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const message = input.value.trim();
+        if (!message) return;
+
+        // Disable form during send
+        input.disabled = true;
+        submitButton.disabled = true;
+        updateStatus('Sending to CLI...', 'sending');
+
+        // Add user message to UI
+        addMessage('User', message, 'user');
+        input.value = '';
+
+        try {
+          // Ensure we have sessionId
+          if (!sessionId) {
+            throw new Error('Session not ready. Please wait for CLI to spawn.');
+          }
+
+          // Send message to server
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              message,
+              sessionId: sessionId || 'global' // Server will validate this
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Request failed');
+          }
+
+          const data = await response.json();
+
+          // Add Claude's response to UI
+          addMessage('Assistant', data.reply, 'assistant');
+          updateStatus(`Response received (${data.reply.length} chars)`, 'idle');
+
+        } catch (error) {
+          console.error('Send error:', error);
+          addMessage('Error', error.message, 'error');
+          updateStatus('Error: ' + error.message, 'error');
+        } finally {
+          // Re-enable form
+          input.disabled = false;
+          submitButton.disabled = false;
+          input.focus();
+        }
+      });
+
+      // Focus input on load
+      input.focus();
+
+      // Initialize session check
+      initSession();
+    </script>
   </body>
 </html>
