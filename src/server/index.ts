@@ -159,8 +159,11 @@ const start = async (): Promise<void> => {
     server.log.info({ port, pid: process.pid }, 'Server started');
 
     // Spawn global CLI session for validation test (Option A - single shared session)
+    // Use CLAUDE_PROJECT_PATH env var if set (from /modern slash command), otherwise cwd
+    const projectPath = process.env.CLAUDE_PROJECT_PATH || process.cwd();
+    server.log.info({ projectPath }, 'Using project path for CLI session');
     try {
-      globalSession = spawnCLISession(process.cwd());
+      globalSession = spawnCLISession(projectPath);
       server.log.info({ sessionId: globalSession.sessionId }, 'CLI session spawned');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

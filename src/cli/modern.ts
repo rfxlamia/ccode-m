@@ -15,7 +15,6 @@ import { getPidFilePath, getPortFilePath } from '../server/services/port-manager
 const CLAUDE_DIR = path.join(process.env.HOME || '', '.claude');
 // Use tsx to run TypeScript source directly (handles path aliases)
 const SERVER_SCRIPT = path.join(CLAUDE_DIR, 'modern', 'src', 'server', 'index.ts');
-const USE_TSX = true; // Run from source for proper path alias resolution
 
 /**
  * Check if the server process is currently running.

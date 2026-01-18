@@ -5,15 +5,18 @@ allowed-tools: Bash(npm:*, npx:*)
 
 Launch the Claude Code GUI server and open in browser.
 
-Run the server from the modern directory:
+Run the full development server (Vite frontend + Fastify backend):
 
 ```bash
-cd ~/.claude/modern && npm run start
+CLAUDE_PROJECT_PATH="$PWD" && cd ~/.claude/modern && npm run dev
 ```
 
-The server will:
-1. Start the GUI server on an available port (default 3000)
-2. Open your default browser to the GUI
-3. Keep running until you press Ctrl+C
+This starts:
+1. **Vite dev server** at http://localhost:5173 (the GUI)
+2. **Fastify backend** at http://localhost:3000 (API)
 
-If port 3000 is in use, it will find another available port.
+The CLI session will be spawned in your current project directory.
+
+Open http://localhost:5173 in your browser for the GUI.
+
+Press Ctrl+C to stop both servers.
