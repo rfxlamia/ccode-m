@@ -16,7 +16,7 @@ describe('ThreePanelLayout', () => {
     render(<ThreePanelLayout />);
 
     expect(screen.getByLabelText(/project files/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/chat/i)).toBeInTheDocument();
+    expect(screen.getByRole('main', { name: /chat/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/progress/i)).toBeInTheDocument();
   });
 

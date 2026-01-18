@@ -1,10 +1,13 @@
+import { useState, useCallback, useRef } from 'react';
 import { MessageCircleIcon } from 'lucide-react';
+import { ChatInput, type ChatInputHandle } from './ChatInput';
+import { useKeyboard } from '@/hooks/useKeyboard';
 
 /** Props for example prompt buttons */
 export type ExamplePromptProps = {
   /** The prompt text to display and use when clicked */
   text: string;
-  /** Callback when the prompt is clicked (Story 2.2 will provide real implementation) */
+  /** Callback when the prompt is clicked */
   onClick?: (text: string) => void;
 };
 
@@ -23,10 +26,35 @@ export function ExamplePrompt({ text, onClick }: ExamplePromptProps): JSX.Elemen
 }
 
 export function ChatPanel(): JSX.Element {
-  // Story 2.2 will provide real click handler
-  const handlePromptClick = (text: string): void => {
-    console.log('Prompt clicked (handler coming in Story 2.2):', text);
-  };
+  const [inputValue, setInputValue] = useState('');
+  const chatInputRef = useRef<ChatInputHandle>(null);
+
+  // Focus helper for keyboard shortcut
+  const focusInput = useCallback(() => {
+    chatInputRef.current?.focus();
+  }, []);
+
+  // Enable global keyboard shortcuts
+  useKeyboard({
+    focusChat: focusInput,
+  });
+
+  const handleSend = useCallback((message: string) => {
+    // TODO: Story 2.3 - Send to SSE endpoint
+    console.log('Message to send:', message);
+  }, []);
+
+  // Example prompt click → populate input + focus
+  const handlePromptClick = useCallback(
+    (text: string) => {
+      setInputValue(text);
+      // Focus after React processes the state update (next frame)
+      requestAnimationFrame(() => {
+        focusInput();
+      });
+    },
+    [focusInput]
+  );
 
   return (
     <main
@@ -64,11 +92,13 @@ export function ChatPanel(): JSX.Element {
         </section>
       </div>
 
-      <div className="border-t p-4">
-        <div className="flex h-12 items-center rounded-lg bg-muted px-4 text-muted-foreground">
-          Chat input coming in Story 2.2...
-        </div>
-      </div>
+      {/* Chat input */}
+      <ChatInput
+        ref={chatInputRef}
+        value={inputValue}
+        onChange={setInputValue}
+        onSend={handleSend}
+      />
     </main>
   );
 }
