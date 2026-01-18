@@ -106,4 +106,4 @@ process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
 
 // Start the server
-start();
+void start();

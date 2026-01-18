@@ -115,7 +115,7 @@ export async function detectStalePidFile(): Promise<void> {
     try {
       process.kill(oldPid, 0);
       // Process exists - another server is running
-      throw new Error(`Another server is already running (PID: ${oldPid})`);
+      throw new Error(`Another server is already running (PID: ${String(oldPid)})`);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ESRCH') {
         // Process not found - stale PID file, safe to remove

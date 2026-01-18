@@ -19,6 +19,18 @@ function isAllowedIp(clientIp: string): boolean {
   return allowedIps.includes(clientIp);
 }
 
+/** Response type for health endpoint */
+interface HealthResponse {
+  status: string;
+  version: string;
+  cli_available: boolean;
+}
+
+/** Response type for test endpoint */
+interface TestResponse {
+  message: string;
+}
+
 describe('server security', () => {
   let server: FastifyInstance;
   let serverUrl: string;
@@ -49,7 +61,7 @@ describe('server security', () => {
     await server.listen({ port: 0, host: '127.0.0.1' });
     const address = server.server.address();
     if (address && typeof address === 'object' && 'port' in address) {
-      serverUrl = `http://127.0.0.1:${address.port}`;
+      serverUrl = `http://127.0.0.1:${String(address.port)}`;
     } else {
       throw new Error('Failed to get server address');
     }
@@ -98,11 +110,11 @@ describe('server security', () => {
       const response = await fetch(`${serverUrl}/test`);
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = (await response.json()) as TestResponse;
       expect(body.message).toBe('ok');
     });
 
-    it('server binds to localhost only', async () => {
+    it('server binds to localhost only', () => {
       const address = server.server.address();
       expect(address).not.toBeNull();
       if (address && typeof address === 'object') {
@@ -116,7 +128,7 @@ describe('server security', () => {
       const response = await fetch(`${serverUrl}/api/health`);
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = (await response.json()) as HealthResponse;
       expect(body).toHaveProperty('status', 'ok');
       expect(body).toHaveProperty('version');
       expect(body).toHaveProperty('cli_available');
@@ -128,7 +140,7 @@ describe('server security', () => {
     it('includes cli_available field', async () => {
       const response = await fetch(`${serverUrl}/api/health`);
 
-      const body = await response.json();
+      const body = (await response.json()) as HealthResponse;
       expect(body).toHaveProperty('cli_available');
       expect(body.cli_available).toBe(true);
     });
@@ -136,7 +148,7 @@ describe('server security', () => {
     it('uses GUI_VERSION constant (not hardcoded)', async () => {
       const response = await fetch(`${serverUrl}/api/health`);
 
-      const body = await response.json();
+      const body = (await response.json()) as HealthResponse;
       expect(body.version).toBe(GUI_VERSION);
     });
   });

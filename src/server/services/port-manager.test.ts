@@ -10,8 +10,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 
-// Store original process.kill for restoration
-const originalProcessKill = process.kill;
+// Store original process.kill for restoration (bound to prevent this scoping issues)
+const originalProcessKill = process.kill.bind(process);
 
 // Mock fs.promises before importing port-manager
 vi.mock('node:fs', async () => {
@@ -40,7 +40,6 @@ import {
   writePortFile,
   cleanupProcessFiles,
   detectStalePidFile,
-  DEFAULT_PORT,
   PORT_RANGE_START,
   PORT_RANGE_END,
 } from './port-manager.js';
@@ -85,6 +84,7 @@ describe('port-manager', () => {
       await findAvailablePort(3000);
 
       expect(mockedGetPort).toHaveBeenCalledWith({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         port: expect.arrayContaining([3000, 3001, 3050]),
       });
     });
@@ -105,11 +105,14 @@ describe('port-manager', () => {
       await findAvailablePort(3000);
 
       // Verify the range starts at 3001 and ends at 3099 (99 ports)
-      const call = mockedGetPort.mock.calls[0][0];
-      expect(call?.port).toHaveLength(100); // 3000 + 99 ports in range
-      expect(call?.port?.[0]).toBe(3000);
-      expect(call?.port?.[1]).toBe(PORT_RANGE_START);
-      expect(call?.port?.[call.port.length - 1]).toBe(PORT_RANGE_END);
+      const call = mockedGetPort.mock.calls[0]?.[0] as { port?: number[] } | undefined;
+      const portArray = call?.port;
+      expect(portArray).toHaveLength(100); // 3000 + 99 ports in range
+      expect(portArray?.[0]).toBe(3000);
+      expect(portArray?.[1]).toBe(PORT_RANGE_START);
+      if (portArray) {
+        expect(portArray[portArray.length - 1]).toBe(PORT_RANGE_END);
+      }
     });
   });
 
@@ -226,6 +229,7 @@ describe('port-manager', () => {
         await detectStalePidFile();
 
         expect(mockedFs.unlink).toHaveBeenCalled();
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         expect(process.kill).toHaveBeenCalledWith(12345, 0);
       } finally {
         // Restore in finally block to ensure cleanup

@@ -1,12 +1,13 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist/cli",
-    "rootDir": "./src/cli",
+    "outDir": "./dist",
+    "rootDir": "./src",
     "types": ["node"],
     "module": "NodeNext",
-    "moduleResolution": "NodeNext"
+    "moduleResolution": "NodeNext",
+    "isolatedModules": true
   },
-  "include": ["src/cli/**/*", "src/shared/**/*"],
+  "include": ["src/cli/**/*"],
   "exclude": ["src/cli/**/*.test.ts"]
 }
