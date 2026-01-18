@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import fastify, { type FastifyInstance, type FastifyRequest, type FastifyReply } from 'fastify';
 import { GUI_VERSION } from '../services/config.js';
 
 /**

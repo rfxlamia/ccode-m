@@ -38,7 +38,7 @@ describe('spawnCLISession', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-session-id');
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-0000-0000-000000000001' as `${string}-${string}-${string}-${string}-${string}`);
     mockProcess = createMockChildProcess();
     mockSpawn.mockReturnValue(mockProcess as unknown as ChildProcess);
   });
@@ -121,7 +121,7 @@ describe('spawnCLISession', () => {
 
     const session = spawnCLISession('/test/project');
 
-    expect(session.sessionId).toBe('test-session-id');
+    expect(session.sessionId).toBe('00000000-0000-0000-0000-000000000001');
     expect(session.projectPath).toBe('/test/project');
     expect(session.mode).toBe('streaming');
   });
@@ -141,7 +141,7 @@ describe('terminateSession', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-session-id');
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-0000-0000-000000000001' as `${string}-${string}-${string}-${string}-${string}`);
     vi.mocked(checkCliAvailable).mockReturnValue(true);
     mockProcess = createMockChildProcess();
     mockSpawn.mockReturnValue(mockProcess as unknown as ChildProcess);
@@ -158,7 +158,7 @@ describe('terminateSession', () => {
 
   it('sends SIGTERM for graceful shutdown', async () => {
     spawnCLISession('/test/project');
-    await terminateSession('test-session-id');
+    await terminateSession('00000000-0000-0000-0000-000000000001');
 
     expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM');
   });
@@ -168,7 +168,7 @@ describe('terminateSession', () => {
 
     mockProcess.killed = false;
 
-    await terminateSession('test-session-id');
+    await terminateSession('00000000-0000-0000-0000-000000000001');
 
     expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM');
     expect(mockProcess.kill).toHaveBeenCalledWith('SIGKILL');
@@ -177,19 +177,19 @@ describe('terminateSession', () => {
   it('removes session from sessions map', async () => {
     spawnCLISession('/test/project');
 
-    expect(getSession('test-session-id')).toBeDefined();
+    expect(getSession('00000000-0000-0000-0000-000000000001')).toBeDefined();
 
-    await terminateSession('test-session-id');
+    await terminateSession('00000000-0000-0000-0000-000000000001');
 
-    expect(getSession('test-session-id')).toBeUndefined();
+    expect(getSession('00000000-0000-0000-0000-000000000001')).toBeUndefined();
   });
 
   it('clears session buffer via cli-parser', async () => {
     spawnCLISession('/test/project');
 
-    await terminateSession('test-session-id');
+    await terminateSession('00000000-0000-0000-0000-000000000001');
 
-    expect(clearSessionBuffer).toHaveBeenCalledWith('test-session-id');
+    expect(clearSessionBuffer).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000001');
   });
 });
 

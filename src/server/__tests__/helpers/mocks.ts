@@ -171,16 +171,14 @@ export interface MockFilesystemState {
  * ```
  */
 export function createMockFilesystem(files: Map<string, string>): () => void {
-  const originalReadFile = vi.fn();
-
   vi.doMock('node:fs', () => ({
     promises: {
-      readFile: async (filePath: string) => {
+      readFile: (filePath: string): Promise<string> => {
         const content = files.get(filePath);
         if (!content) {
-          throw new Error('ENOENT: no such file or directory');
+          return Promise.reject(new Error('ENOENT: no such file or directory'));
         }
-        return content;
+        return Promise.resolve(content);
       },
     },
   }));

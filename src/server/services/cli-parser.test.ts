@@ -102,7 +102,9 @@ describe('mapCLIEventToSSE', () => {
 
     expect(event).not.toBeNull();
     expect(event?.type).toBe('message');
-    expect(event?.content).toBe('Hello!');
+    if (event?.type === 'message') {
+      expect(event.content).toBe('Hello!');
+    }
   });
 
   it('maps result/success event with usage', () => {
@@ -120,8 +122,10 @@ describe('mapCLIEventToSSE', () => {
 
     expect(event).not.toBeNull();
     expect(event?.type).toBe('complete');
-    expect(event?.input_tokens).toBe(100);
-    expect(event?.output_tokens).toBe(50);
+    if (event?.type === 'complete') {
+      expect(event.input_tokens).toBe(100);
+      expect(event.output_tokens).toBe(50);
+    }
   });
 
   it('maps tool_use event from message content', () => {
@@ -143,8 +147,10 @@ describe('mapCLIEventToSSE', () => {
 
     expect(event).not.toBeNull();
     expect(event?.type).toBe('tool_use');
-    expect(event?.tool_name).toBe('Read');
-    expect(event?.tool_input).toEqual({ file_path: '/test.txt' });
+    if (event?.type === 'tool_use') {
+      expect(event.tool_name).toBe('Read');
+      expect(event.tool_input).toEqual({ file_path: '/test.txt' });
+    }
   });
 
   it('maps tool_result event', () => {
@@ -158,8 +164,10 @@ describe('mapCLIEventToSSE', () => {
 
     expect(event).not.toBeNull();
     expect(event?.type).toBe('tool_result');
-    expect(event?.tool_output).toBe('File content');
-    expect(event?.is_cached).toBe(false);
+    if (event?.type === 'tool_result') {
+      expect(event.tool_output).toBe('File content');
+      expect(event.is_cached).toBe(false);
+    }
   });
 
   it('skips system/init events', () => {

@@ -7,6 +7,7 @@
 
 import type { SSEEvent } from '@shared/types.js';
 import { SSEEventSchema } from '@shared/types.js';
+import { ErrorCodes, ErrorMessages } from '@shared/errors.js';
 
 // ============================================
 // LOGGING
@@ -90,7 +91,7 @@ export function parseCLIOutput(sessionId: string, data: Buffer): SSEEvent[] {
         events.push(event);
       }
     } catch {
-      log.error({ sessionId, line: line.slice(0, 100) }, 'Parse error');
+      log.error({ sessionId, line: line.slice(0, 100), code: ErrorCodes.PARSE_ERROR }, ErrorMessages[ErrorCodes.PARSE_ERROR]);
     }
   }
 
@@ -138,7 +139,7 @@ export function parseCLIOutput(sessionId: string, data: Buffer): SSEEvent[] {
 export function mapCLIEventToSSE(cliEvent: unknown, sessionId: string): SSEEvent | null {
   // Validate basic structure
   if (!cliEvent || typeof cliEvent !== 'object') {
-    log.warn({ sessionId }, 'Invalid event structure');
+    log.warn({ sessionId, code: ErrorCodes.INVALID_EVENT_STRUCTURE }, ErrorMessages[ErrorCodes.INVALID_EVENT_STRUCTURE]);
     return null;
   }
 
