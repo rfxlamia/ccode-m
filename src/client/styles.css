@@ -42,6 +42,15 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-brand-orange: #cc785c;
+  --color-brand-gray: #828179;
+  --color-brand-cream: #f0efea;
+  --color-brand-white: #ffffff;
+  --color-brand-dark: #141413;
+
+  --font-sans: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Source Serif 4', ui-serif, Georgia, serif;
 }
 
 :root {
@@ -118,6 +127,9 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background font-sans text-foreground;
+  }
+  :focus-visible {
+    @apply ring-2 ring-ring ring-offset-2 ring-offset-background outline-none;
   }
 }
