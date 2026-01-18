@@ -108,3 +108,19 @@ export interface SpawnOptions {
   continue?: boolean;  // Use --continue flag for session continuity
   resume?: string;     // Use --resume <id> for specific session
 }
+
+// ============================================
+// Chat Message Types (Frontend State)
+// ============================================
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isStreaming?: boolean;
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+  };
+}

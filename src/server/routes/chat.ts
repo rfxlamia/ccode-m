@@ -48,8 +48,45 @@ export const chatRoutes: FastifyPluginCallback = (server, _opts, done) => {
   });
 
   /**
+   * POST /api/chat/send
+   * Send message to CLI session (non-blocking, for SSE streaming).
+   * Returns immediately after message is sent, events come via SSE stream.
+   */
+  server.post<{
+    Body: { message: string; sessionId: string };
+  }>('/api/chat/send', async (request, reply) => {
+    const { message, sessionId } = request.body;
+
+    // Validation
+    if (!message || typeof message !== 'string' || message.trim() === '') {
+      return await reply.status(400).send({ error: 'message is required' });
+    }
+    if (!sessionId || typeof sessionId !== 'string') {
+      return await reply.status(400).send({ error: 'sessionId is required' });
+    }
+
+    // Get session
+    const session = getSession(sessionId);
+    if (!session) {
+      log.error({ sessionId }, 'Session not found');
+      return await reply.status(404).send({ error: 'Session not found' });
+    }
+
+    // Send message to CLI (non-blocking)
+    const sent = sendMessage(sessionId, message);
+    if (!sent) {
+      log.error({ sessionId, message }, 'Failed to send message to CLI');
+      return await reply.status(500).send({ error: 'Failed to send message to CLI' });
+    }
+
+    log.info({ sessionId, message: message.substring(0, 50) }, 'Message sent to CLI (non-blocking)');
+    return await reply.send({ success: true, sessionId });
+  });
+
+  /**
    * POST /api/chat
    * Send message to shared CLI session and wait for complete response.
+   * (Legacy blocking endpoint - use /api/chat/send + SSE for streaming)
    */
   server.post<{
     Body: { message: string; sessionId: string };
@@ -160,6 +197,102 @@ export const chatRoutes: FastifyPluginCallback = (server, _opts, done) => {
       indexModule.decrementActiveRequests();
     }
   });
+
+  /**
+   * GET /api/chat/stream/:sessionId
+   * SSE endpoint - streams CLI events to frontend in real-time
+   */
+  server.get<{ Params: { sessionId: string } }>(
+    '/api/chat/stream/:sessionId',
+    async (request, reply) => {
+      const { sessionId } = request.params;
+
+      // Import getGlobalSession from index.ts
+      const indexModule = await import('../index.js') as {
+        getGlobalSession: () => { sessionId: string } | null;
+        incrementActiveRequests: () => void;
+        decrementActiveRequests: () => void;
+      };
+
+      // Validate session exists
+      const globalSession = indexModule.getGlobalSession();
+      if (!globalSession) {
+        return await reply.status(503).send({ error: 'CLI session not ready' });
+      }
+
+      // Verify sessionId matches global session
+      if (globalSession.sessionId !== sessionId) {
+        return await reply.status(403).send({ error: 'Invalid session ID' });
+      }
+
+      // Get session from cli-process.ts
+      const session = getSession(sessionId);
+      if (!session) {
+        return await reply.status(404).send({ error: 'Session not found' });
+      }
+
+      // Increment active requests for graceful shutdown
+      indexModule.incrementActiveRequests();
+
+      // Set SSE headers for streaming
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no', // Disable nginx buffering for real-time
+      });
+
+      // CRITICAL: Flush headers immediately with SSE comment
+      // Without this, headers are queued but not sent until first write,
+      // causing deadlock: frontend waits for headers, server waits for events
+      reply.raw.write(':ok\n\n');
+
+      // Track if stream has ended for cleanup
+      let streamEnded = false;
+
+      // SSE keepalive heartbeat to prevent proxy/browser timeouts
+      const heartbeatInterval = setInterval(() => {
+        if (!streamEnded) {
+          reply.raw.write(':heartbeat\n\n');
+        }
+      }, 15000); // Every 15 seconds
+
+      const endStream = (): void => {
+        if (streamEnded) return;
+        streamEnded = true;
+        cleanup();
+        reply.raw.end();
+      };
+
+      // Forward CLI events to SSE stream
+      const eventHandler = (event: SSEEvent): void => {
+        if (streamEnded) return;
+        reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+
+        // End stream on complete or error
+        if (event.type === 'complete' || event.type === 'error') {
+          endStream();
+        }
+      };
+
+      // Cleanup function to remove listeners, clear heartbeat, and decrement counter
+      const cleanup = (): void => {
+        clearInterval(heartbeatInterval);
+        session.emitter.off('cli-event', eventHandler);
+        indexModule.decrementActiveRequests();
+      };
+
+      // Register event listener
+      session.emitter.on('cli-event', eventHandler);
+
+      // Cleanup on client disconnect
+      request.raw.on('close', () => {
+        if (!streamEnded) {
+          endStream();
+        }
+      });
+    }
+  );
 
   done();
 };
