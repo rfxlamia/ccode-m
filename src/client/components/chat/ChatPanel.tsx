@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { MessageCircleIcon } from 'lucide-react';
 import { ChatInput, type ChatInputHandle } from './ChatInput';
+import { MessageBubble } from './MessageBubble';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useChatStore } from '@/stores/chatStore';
 import { sendAndStream, getSessionId } from '@/services/sse';
@@ -176,17 +177,7 @@ export function ChatPanel(): JSX.Element {
       {messages.length > 0 ? (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`p-3 rounded-lg ${
-                msg.role === 'user'
-                  ? 'bg-primary text-primary-foreground ml-12'
-                  : 'bg-muted mr-12'
-              }`}
-            >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
-              {msg.isStreaming && <span className="animate-pulse">▋</span>}
-            </div>
+            <MessageBubble key={msg.id} message={msg} />
           ))}
           {error && (
             <div className="p-3 rounded-lg bg-destructive/10 text-destructive mr-12">

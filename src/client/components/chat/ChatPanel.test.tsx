@@ -3,6 +3,17 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { ChatPanel, ExamplePrompt } from './ChatPanel';
 
+const findMessageBubble = (element: HTMLElement): HTMLElement | null => {
+  let current: HTMLElement | null = element;
+  while (current) {
+    if (current.classList.contains('rounded-lg')) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+};
+
 // Create mock implementations
 const mockAddMessage = vi.fn();
 const mockAppendToLastMessage = vi.fn();
@@ -175,7 +186,9 @@ describe('ChatPanel', () => {
       const messageText = screen.getByText('Hello Claude!');
       expect(messageText).toBeInTheDocument();
       // User messages have ml-12 (margin-left)
-      expect(messageText.closest('div')).toHaveClass('ml-12');
+      const bubble = findMessageBubble(messageText);
+      expect(bubble).not.toBeNull();
+      expect(bubble).toHaveClass('ml-12');
     });
 
     it('renders assistant messages with correct styling', () => {
@@ -193,7 +206,9 @@ describe('ChatPanel', () => {
       const messageText = screen.getByText('Hello! How can I help you?');
       expect(messageText).toBeInTheDocument();
       // Assistant messages have mr-12 (margin-right)
-      expect(messageText.closest('div')).toHaveClass('mr-12');
+      const bubble = findMessageBubble(messageText);
+      expect(bubble).not.toBeNull();
+      expect(bubble).toHaveClass('mr-12');
     });
 
     it('shows streaming indicator when message is streaming', () => {
@@ -209,10 +224,8 @@ describe('ChatPanel', () => {
 
       render(<ChatPanel />);
 
-      // Streaming indicator is the ▋ character with animate-pulse
-      const streamingIndicator = screen.getByText('▋');
+      const streamingIndicator = document.querySelector('.animate-pulse');
       expect(streamingIndicator).toBeInTheDocument();
-      expect(streamingIndicator).toHaveClass('animate-pulse');
     });
 
     it('hides streaming indicator when message is complete', () => {
@@ -228,7 +241,7 @@ describe('ChatPanel', () => {
 
       render(<ChatPanel />);
 
-      expect(screen.queryByText('▋')).not.toBeInTheDocument();
+      expect(document.querySelector('.animate-pulse')).not.toBeInTheDocument();
     });
 
     it('renders multiple messages in order', () => {
@@ -290,6 +303,34 @@ describe('ChatPanel', () => {
       render(<ChatPanel />);
 
       expect(screen.getByText(/start a conversation with claude/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('ChatPanel - Typewriter Integration', () => {
+    it('renders a message bubble for each message', () => {
+      mockStoreState.messages = [
+        { id: '1', role: 'user', content: 'First message', timestamp: new Date() },
+        { id: '2', role: 'assistant', content: 'Second message', timestamp: new Date() },
+      ];
+
+      render(<ChatPanel />);
+
+      const messages = screen.getAllByText(/message/i);
+      expect(messages).toHaveLength(2);
+
+      messages.forEach((messageText) => {
+        const bubble = findMessageBubble(messageText);
+        expect(bubble).not.toBeNull();
+        expect(bubble).toHaveClass('rounded-lg');
+      });
+    });
+
+    it('preserves the empty state prompt layout', () => {
+      mockStoreState.messages = [];
+      render(<ChatPanel />);
+
+      expect(screen.getByText(/start a conversation with claude/i)).toBeInTheDocument();
+      expect(screen.getByText(/try one of these examples/i)).toBeInTheDocument();
     });
   });
 });

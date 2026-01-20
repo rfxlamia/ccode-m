@@ -61,4 +61,4 @@ function Button({
 }
 /* eslint-enable @typescript-eslint/explicit-function-return-type */
 
-export { Button, buttonVariants }
+export { Button }
