@@ -159,5 +159,8 @@ async function main(): Promise<void> {
   }
 }
 
-// Run main() - this file is only executed as CLI entry point
-void main();
+// Only run main() when executed directly as CLI entry point
+// This guard prevents main() from running when the module is imported for testing
+if (process.argv[1]?.endsWith('modern.js') || process.argv[1]?.endsWith('modern.ts')) {
+  void main();
+}
