@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { forwardRef } from 'react';
+import type { VirtuosoProps, VirtuosoHandle } from 'react-virtuoso';
 import { ChatPanel, ExamplePrompt } from './ChatPanel';
 
 const findMessageBubble = (element: HTMLElement): HTMLElement | null => {
@@ -34,7 +36,39 @@ let mockStoreState = {
   isStreaming: false,
   sessionId: null as string | null,
   error: null as string | null,
+  isAtBottom: true,
 };
+
+vi.mock('react-virtuoso', () => {
+  const Virtuoso = forwardRef<VirtuosoHandle, VirtuosoProps<unknown, unknown>>(
+    (props, ref) => {
+      const items = props.data ?? [];
+      // Expose mock ref methods for testing
+      if (ref && typeof ref === 'object') {
+        (ref).current = {
+          scrollToIndex: vi.fn(),
+          scrollTo: vi.fn(),
+          scrollBy: vi.fn(),
+          scrollIntoView: vi.fn(),
+          getState: vi.fn(),
+          autoscrollToBottom: vi.fn(),
+        };
+      }
+      return (
+        <div data-testid="virtuoso-container">
+          {(items as unknown[]).map((item, index) => (
+            <div key={String(index)} data-testid={`virtuoso-item-${String(index)}`}>
+              {props.itemContent ? props.itemContent(index, item) : null}
+            </div>
+          ))}
+        </div>
+      );
+    }
+  );
+  Virtuoso.displayName = 'Virtuoso';
+
+  return { Virtuoso };
+});
 
 // Mock the SSE service
 vi.mock('@/services/sse', () => ({
@@ -52,6 +86,7 @@ vi.mock('@/stores/chatStore', () => ({
     setStreaming: mockSetStreaming,
     setSessionId: mockSetSessionId,
     setError: mockSetError,
+    setIsAtBottom: vi.fn(),
   })),
 }));
 
@@ -64,6 +99,7 @@ describe('ChatPanel', () => {
       isStreaming: false,
       sessionId: null,
       error: null,
+      isAtBottom: true,
     };
   });
 

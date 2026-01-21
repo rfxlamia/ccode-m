@@ -6,6 +6,7 @@ interface ChatState {
   isStreaming: boolean;
   sessionId: string | null;
   error: string | null;
+  isAtBottom: boolean;
 
   // Actions (verb prefix per architecture)
   addMessage: (message: ChatMessage) => void;
@@ -14,6 +15,7 @@ interface ChatState {
   setStreaming: (streaming: boolean) => void;
   setSessionId: (id: string) => void;
   setError: (error: string | null) => void;
+  setIsAtBottom: (atBottom: boolean) => void;
   clearMessages: () => void;
 }
 
@@ -22,6 +24,7 @@ export const useChatStore = create<ChatState>((set) => ({
   isStreaming: false,
   sessionId: null,
   error: null,
+  isAtBottom: true,
 
   addMessage: (message) => {
     set((state) => ({ messages: [...state.messages, message] }));
@@ -57,6 +60,9 @@ export const useChatStore = create<ChatState>((set) => ({
   },
   setError: (error) => {
     set({ error });
+  },
+  setIsAtBottom: (atBottom) => {
+    set({ isAtBottom: atBottom });
   },
   clearMessages: () => {
     set({ messages: [] });

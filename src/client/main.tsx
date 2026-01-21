@@ -11,3 +11,10 @@ createRoot(root).render(
     <App />
   </StrictMode>
 );
+
+if (import.meta.env.DEV) {
+  void import('./stores/chatStore').then(({ useChatStore }) => {
+    const globalWindow = window as Window & { __chatStore?: typeof useChatStore };
+    globalWindow.__chatStore = useChatStore;
+  });
+}

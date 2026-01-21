@@ -11,6 +11,7 @@ describe('useChatStore', () => {
         isStreaming: false,
         sessionId: null,
         error: null,
+        isAtBottom: true,
       });
     });
   });
@@ -21,6 +22,7 @@ describe('useChatStore', () => {
     expect(result.current.isStreaming).toBe(false);
     expect(result.current.sessionId).toBe(null);
     expect(result.current.error).toBe(null);
+    expect(result.current.isAtBottom).toBe(true);
   });
 
   it('should add a message', () => {
@@ -180,5 +182,21 @@ describe('useChatStore', () => {
     });
 
     expect(result.current.messages).toEqual([]);
+  });
+
+  it('should update scroll state', () => {
+    const { result } = renderHook(() => useChatStore());
+
+    act(() => {
+      result.current.setIsAtBottom(false);
+    });
+
+    expect(result.current.isAtBottom).toBe(false);
+
+    act(() => {
+      result.current.setIsAtBottom(true);
+    });
+
+    expect(result.current.isAtBottom).toBe(true);
   });
 });
