@@ -59,11 +59,11 @@ export async function sendAndStream(
         const result = await reader.read();
         if (result.done) break;
 
-        const value = result.value;
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (value) {
-          buffer += decoder.decode(value, { stream: true });
+        if (result.value) {
+          buffer += decoder.decode(result.value, { stream: true });
         }
+
         const lines = buffer.split('\n\n');
         buffer = lines.pop() ?? '';
 
@@ -75,7 +75,6 @@ export async function sendAndStream(
         }
       }
     } finally {
-      // Ensure reader is released
       reader.releaseLock();
     }
 

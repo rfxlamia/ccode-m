@@ -6,25 +6,7 @@
  */
 
 import { getSession } from './cli-process.js';
-
-// ============================================
-// LOGGING
-// ============================================
-
-/**
- * Simple structured logger following Fastify/pino pattern.
- */
-const log = {
-  info: (data: Record<string, unknown>, msg: string): void => {
-    console.log(JSON.stringify({ level: 'info', ...data, msg }));
-  },
-  warn: (data: Record<string, unknown>, msg: string): void => {
-    console.warn(JSON.stringify({ level: 'warn', ...data, msg }));
-  },
-  error: (data: Record<string, unknown>, msg: string): void => {
-    console.error(JSON.stringify({ level: 'error', ...data, msg }));
-  },
-};
+import { log } from '../utils/logger.js';
 
 // ============================================
 // MESSAGE FORMATTING
@@ -143,11 +125,12 @@ export function endInput(sessionId: string): boolean {
 }
 
 // ============================================
-// UTILITY FUNCTIONS
+// UTILITY FUNCTIONS (TEST-ONLY)
 // ============================================
 
 /**
  * Check if a session's stdin is writable.
+ * Used only in tests for validation.
  */
 export function isStdinWritable(sessionId: string): boolean {
   const session = getSession(sessionId);
@@ -159,6 +142,7 @@ export function isStdinWritable(sessionId: string): boolean {
 
 /**
  * Get the message format for a session's mode.
+ * Used only in tests for validation.
  */
 export function getMessageFormat(sessionId: string): 'streaming' | 'plain' | 'unknown' {
   const session = getSession(sessionId);
@@ -166,3 +150,4 @@ export function getMessageFormat(sessionId: string): 'streaming' | 'plain' | 'un
 
   return session.mode === 'streaming' ? 'streaming' : 'plain';
 }
+

@@ -19,21 +19,11 @@ export function VirtualizedMessageList({
   const { isAtBottom, setIsAtBottom } = useChatStore();
 
   const handleFollowOutput = useCallback(
-    (atBottom: boolean): 'smooth' | false => {
-      if (atBottom) {
-        return 'smooth';
-      }
-      return false;
-    },
+    (atBottom: boolean): 'smooth' | false => (atBottom ? 'smooth' : false),
     []
   );
 
-  const handleAtBottomStateChange = useCallback(
-    (atBottom: boolean): void => {
-      setIsAtBottom(atBottom);
-    },
-    [setIsAtBottom]
-  );
+  const handleAtBottomStateChange = useCallback(setIsAtBottom, [setIsAtBottom]);
 
   const scrollToBottom = useCallback((): void => {
     virtuosoRef.current?.scrollToIndex({
@@ -48,27 +38,27 @@ export function VirtualizedMessageList({
       const container = containerRef.current;
       if (!container) return;
 
-      if (event.key === 'Home') {
-        event.preventDefault();
-        virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'smooth' });
-        return;
-      }
-
-      if (event.key === 'End') {
-        event.preventDefault();
-        scrollToBottom();
-        return;
-      }
-
-      if (event.key === 'PageUp' || event.key === 'PageDown') {
-        event.preventDefault();
-        const direction = event.key === 'PageUp' ? -1 : 1;
-        const delta = Math.max(container.clientHeight, 0);
-        if (delta === 0) return;
-        virtuosoRef.current?.scrollBy({
-          top: direction * delta,
-          behavior: 'smooth',
-        });
+      switch (event.key) {
+        case 'Home':
+          event.preventDefault();
+          virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'smooth' });
+          break;
+        case 'End':
+          event.preventDefault();
+          scrollToBottom();
+          break;
+        case 'PageUp':
+        case 'PageDown': {
+          event.preventDefault();
+          const direction = event.key === 'PageUp' ? -1 : 1;
+          const delta = Math.max(container.clientHeight, 0);
+          if (delta === 0) return;
+          virtuosoRef.current?.scrollBy({
+            top: direction * delta,
+            behavior: 'smooth',
+          });
+          break;
+        }
       }
     },
     [scrollToBottom]

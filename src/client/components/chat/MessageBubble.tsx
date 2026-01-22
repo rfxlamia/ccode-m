@@ -31,10 +31,9 @@ export const MessageBubble = memo(function MessageBubble({
   }, [skipToEnd]);
 
   const showCursor = !isSkipped && (isTyping || message.isStreaming === true);
-  const contentToShow =
-    isAssistant && !isSkipped && (message.isStreaming || isTyping)
-      ? displayedText
-      : message.content;
+  const contentToShow = isAssistant && !isSkipped && (message.isStreaming || isTyping)
+    ? displayedText
+    : message.content;
 
   return (
     <div
@@ -48,9 +47,7 @@ export const MessageBubble = memo(function MessageBubble({
         <TypewriterMarkdown
           content={contentToShow}
           isTyping={showCursor}
-          onClick={
-            !isSkipped && (message.isStreaming || isTyping) ? handleSkip : undefined
-          }
+          onClick={!isSkipped && (message.isStreaming || isTyping) ? handleSkip : undefined}
         />
       ) : (
         <p className="whitespace-pre-wrap">{message.content}</p>

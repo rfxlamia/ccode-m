@@ -11,25 +11,7 @@ import { checkCliAvailable } from './config.js';
 import { parseCLIOutput, clearSessionBuffer } from './cli-parser.js';
 import { ErrorCodes, createErrorMessage, type ErrorCode } from '@shared/errors.js';
 import type { CLISession, SpawnOptions } from '@shared/types.js';
-
-// ============================================
-// LOGGING
-// ============================================
-
-/**
- * Simple structured logger following Fastify/pino pattern.
- */
-const log = {
-  info: (data: Record<string, unknown>, msg: string): void => {
-    console.log(JSON.stringify({ level: 'info', ...data, msg }));
-  },
-  warn: (data: Record<string, unknown>, msg: string): void => {
-    console.warn(JSON.stringify({ level: 'warn', ...data, msg }));
-  },
-  error: (data: Record<string, unknown>, msg: string): void => {
-    console.error(JSON.stringify({ level: 'error', ...data, msg }));
-  },
-};
+import { log } from '../utils/logger.js';
 
 // ============================================
 // SESSION TRACKING

@@ -91,9 +91,7 @@ export function ChatPanel(): JSX.Element {
       if (!sessionId || isStreaming) return;
 
       // Cancel any previous streaming
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      abortControllerRef.current?.abort();
 
       // Create new abort controller for this request
       const abortController = new AbortController();
@@ -171,10 +169,8 @@ export function ChatPanel(): JSX.Element {
   const handleClearConversation = useCallback(() => {
     if (isStreaming || isResetting) return;
 
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
 
     void clearSession();
   }, [isStreaming, isResetting, clearSession]);

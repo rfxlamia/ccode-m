@@ -8,22 +8,7 @@
 import type { SSEEvent } from '@shared/types.js';
 import { SSEEventSchema } from '@shared/types.js';
 import { ErrorCodes, ErrorMessages } from '@shared/errors.js';
-
-// ============================================
-// LOGGING
-// ============================================
-
-/**
- * Simple structured logger following Fastify/pino pattern.
- */
-const log = {
-  warn: (data: Record<string, unknown>, msg: string): void => {
-    console.warn(JSON.stringify({ level: 'warn', ...data, msg }));
-  },
-  error: (data: Record<string, unknown>, msg: string): void => {
-    console.error(JSON.stringify({ level: 'error', ...data, msg }));
-  },
-};
+import { log } from '../utils/logger.js';
 
 // ============================================
 // PER-SESSION BUFFERS
@@ -368,14 +353,14 @@ export function clearSessionBuffer(sessionId: string): void {
 }
 
 /**
- * Get the current buffer content for a session (for debugging).
+ * Get the current buffer content for a session (for debugging/testing).
  */
 export function getSessionBuffer(sessionId: string): string {
   return sessionBuffers.get(sessionId) || '';
 }
 
 /**
- * Get all active session IDs that have buffers.
+ * Get all active session IDs that have buffers (for testing).
  */
 export function getBufferedSessionIds(): string[] {
   return Array.from(sessionBuffers.keys());

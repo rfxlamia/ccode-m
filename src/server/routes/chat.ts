@@ -9,22 +9,7 @@ import type { FastifyPluginCallback } from 'fastify';
 import { getSession } from '../services/cli-process.js';
 import { sendMessage } from '../services/cli-protocol.js';
 import type { SSEEvent } from '@shared/types.js';
-
-// ============================================
-// LOGGING
-// ============================================
-
-const log = {
-  info: (data: Record<string, unknown>, msg: string): void => {
-    console.log(JSON.stringify({ level: 'info', ...data, msg }));
-  },
-  warn: (data: Record<string, unknown>, msg: string): void => {
-    console.warn(JSON.stringify({ level: 'warn', ...data, msg }));
-  },
-  error: (data: Record<string, unknown>, msg: string): void => {
-    console.error(JSON.stringify({ level: 'error', ...data, msg }));
-  },
-};
+import { log } from '../utils/logger.js';
 
 // ============================================
 // ROUTE HANDLER
@@ -78,10 +63,10 @@ export const chatRoutes: FastifyPluginCallback = (server, _opts, done) => {
     const { message, sessionId } = request.body;
 
     // Validation
-    if (!message || typeof message !== 'string' || message.trim() === '') {
+    if (!message || !message.trim()) {
       return await reply.status(400).send({ error: 'message is required' });
     }
-    if (!sessionId || typeof sessionId !== 'string') {
+    if (!sessionId) {
       return await reply.status(400).send({ error: 'sessionId is required' });
     }
 
@@ -114,12 +99,12 @@ export const chatRoutes: FastifyPluginCallback = (server, _opts, done) => {
     const { message, sessionId } = request.body;
 
     // Validation: message required
-    if (!message || typeof message !== 'string' || message.trim() === '') {
+    if (!message || !message.trim()) {
       return await reply.status(400).send({ error: 'message is required' });
     }
 
     // Validation: sessionId required (global session provided by server)
-    if (!sessionId || typeof sessionId !== 'string') {
+    if (!sessionId) {
       return await reply.status(400).send({ error: 'sessionId is required' });
     }
 
