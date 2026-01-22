@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MessageCircleIcon } from 'lucide-react';
+import { MessageCircleIcon, Trash2Icon, Loader2Icon } from 'lucide-react';
 import { ChatInput, type ChatInputHandle } from './ChatInput';
 import { VirtualizedMessageList } from './VirtualizedMessageList';
 import { useKeyboard } from '@/hooks/useKeyboard';
@@ -37,6 +37,7 @@ export function ChatPanel(): JSX.Element {
   const {
     messages,
     isStreaming,
+    isResetting,
     sessionId,
     error,
     addMessage,
@@ -45,6 +46,7 @@ export function ChatPanel(): JSX.Element {
     setStreaming,
     setSessionId,
     setError,
+    clearSession,
   } = useChatStore();
 
   // Focus helper for keyboard shortcut
@@ -166,6 +168,17 @@ export function ChatPanel(): JSX.Element {
     [focusInput]
   );
 
+  const handleClearConversation = useCallback(() => {
+    if (isStreaming || isResetting) return;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    void clearSession();
+  }, [isStreaming, isResetting, clearSession]);
+
   return (
     <main
       id="main-content"
@@ -173,6 +186,27 @@ export function ChatPanel(): JSX.Element {
       aria-label="Chat"
       className="flex h-full flex-col bg-background"
     >
+      {messages.length > 0 && (
+        <header className="flex items-center justify-between border-b border-border px-4 py-2">
+          <span className="text-sm font-medium text-muted-foreground">Chat</span>
+          <button
+            type="button"
+            onClick={handleClearConversation}
+            disabled={isStreaming || isResetting}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            title="Clear conversation and start fresh"
+            aria-label="Clear conversation"
+          >
+            {isResetting ? (
+              <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Trash2Icon className="h-4 w-4" aria-hidden="true" />
+            )}
+            <span className="sr-only sm:not-sr-only">Clear</span>
+          </button>
+        </header>
+      )}
+
       {/* Messages area - WITH VIRTUALIZATION */}
       {messages.length > 0 ? (
         <div className="flex-1 flex flex-col overflow-hidden">

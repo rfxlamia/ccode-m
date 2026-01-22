@@ -48,6 +48,26 @@ export const chatRoutes: FastifyPluginCallback = (server, _opts, done) => {
   });
 
   /**
+   * DELETE /api/chat/session
+   * Reset the global session (clear conversation).
+   */
+  server.delete('/api/chat/session', async (_request, reply) => {
+    const indexModule = await import('../index.js') as {
+      resetGlobalSession: () => Promise<string | null>;
+    };
+
+    const newSessionId = await indexModule.resetGlobalSession();
+
+    if (newSessionId === null) {
+      log.error({}, 'Failed to reset session');
+      return await reply.status(500).send({ error: 'Failed to reset CLI session' });
+    }
+
+    log.info({ newSessionId }, 'Session reset successfully');
+    return await reply.send({ sessionId: newSessionId });
+  });
+
+  /**
    * POST /api/chat/send
    * Send message to CLI session (non-blocking, for SSE streaming).
    * Returns immediately after message is sent, events come via SSE stream.

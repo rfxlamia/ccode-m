@@ -51,6 +51,30 @@ export function getGlobalSession(): CLISession | null {
 }
 
 /**
+ * Reset the global CLI session.
+ * Terminates current session and spawns a new one.
+ * @returns New session ID or null if spawn fails
+ */
+export async function resetGlobalSession(): Promise<string | null> {
+  if (globalSession !== null) {
+    await terminateSession(globalSession.sessionId);
+    globalSession = null;
+  }
+
+  const projectPath = process.env.CLAUDE_PROJECT_PATH || process.cwd();
+
+  try {
+    globalSession = spawnCLISession(projectPath);
+    server.log.info({ sessionId: globalSession.sessionId }, 'CLI session reset');
+    return globalSession.sessionId;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    server.log.error({ error: errorMessage }, 'Failed to reset CLI session');
+    return null;
+  }
+}
+
+/**
  * Increment active request counter.
  * Called when request starts processing.
  */

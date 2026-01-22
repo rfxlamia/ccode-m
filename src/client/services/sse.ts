@@ -101,3 +101,26 @@ export async function getSessionId(signal?: AbortSignal): Promise<string> {
   const data = (await response.json()) as SessionResponse;
   return data.sessionId;
 }
+
+/**
+ * Reset session (clear conversation).
+ * Terminates current CLI session and spawns a new one.
+ * @returns New session ID
+ * @throws Error if reset fails
+ */
+export async function resetSession(signal?: AbortSignal): Promise<string> {
+  const response = await fetch('/api/chat/session', {
+    method: 'DELETE',
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json().catch(() => ({ error: 'Unknown error' }))) as {
+      error: string;
+    };
+    throw new Error(errorData.error || `Reset failed: ${String(response.status)}`);
+  }
+
+  const data = (await response.json()) as SessionResponse;
+  return data.sessionId;
+}

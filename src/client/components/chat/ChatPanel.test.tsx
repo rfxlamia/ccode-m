@@ -23,6 +23,7 @@ const mockFinalizeLastMessage = vi.fn();
 const mockSetStreaming = vi.fn();
 const mockSetSessionId = vi.fn();
 const mockSetError = vi.fn();
+const mockClearSession = vi.fn();
 
 // Default mock state
 let mockStoreState = {
@@ -34,6 +35,7 @@ let mockStoreState = {
     isStreaming?: boolean;
   }>,
   isStreaming: false,
+  isResetting: false,
   sessionId: null as string | null,
   error: null as string | null,
   isAtBottom: true,
@@ -87,6 +89,9 @@ vi.mock('@/stores/chatStore', () => ({
     setSessionId: mockSetSessionId,
     setError: mockSetError,
     setIsAtBottom: vi.fn(),
+    clearMessages: vi.fn(),
+    clearSession: mockClearSession,
+    setResetting: vi.fn(),
   })),
 }));
 
@@ -97,6 +102,7 @@ describe('ChatPanel', () => {
     mockStoreState = {
       messages: [],
       isStreaming: false,
+      isResetting: false,
       sessionId: null,
       error: null,
       isAtBottom: true,
@@ -367,6 +373,48 @@ describe('ChatPanel', () => {
 
       expect(screen.getByText(/start a conversation with claude/i)).toBeInTheDocument();
       expect(screen.getByText(/try one of these examples/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Clear Conversation', () => {
+    beforeEach(() => {
+      mockStoreState.messages = [
+        { id: '1', role: 'user', content: 'Hello', timestamp: new Date() },
+      ];
+      mockStoreState.sessionId = 'test-session';
+      mockStoreState.isResetting = false;
+      mockStoreState.isStreaming = false;
+    });
+
+    it('shows Clear button when messages exist', () => {
+      render(<ChatPanel />);
+      expect(screen.getByRole('button', { name: /clear/i })).toBeInTheDocument();
+    });
+
+    it('hides Clear button when no messages', () => {
+      mockStoreState.messages = [];
+      render(<ChatPanel />);
+      expect(screen.queryByRole('button', { name: /clear/i })).not.toBeInTheDocument();
+    });
+
+    it('disables Clear button during streaming', () => {
+      mockStoreState.isStreaming = true;
+      render(<ChatPanel />);
+      expect(screen.getByRole('button', { name: /clear/i })).toBeDisabled();
+    });
+
+    it('disables Clear button during reset', () => {
+      mockStoreState.isResetting = true;
+      render(<ChatPanel />);
+      expect(screen.getByRole('button', { name: /clear/i })).toBeDisabled();
+    });
+
+    it('shows loading spinner during reset', () => {
+      mockStoreState.isResetting = true;
+      render(<ChatPanel />);
+      expect(
+        screen.getByRole('button', { name: /clear/i }).querySelector('.animate-spin')
+      ).toBeInTheDocument();
     });
   });
 });

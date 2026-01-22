@@ -1,6 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useChatStore } from './chatStore';
+
+// Mock sse module
+vi.mock('@/services/sse', () => ({
+  resetSession: vi.fn(),
+}));
 
 describe('useChatStore', () => {
   beforeEach(() => {
@@ -9,6 +14,7 @@ describe('useChatStore', () => {
       useChatStore.setState({
         messages: [],
         isStreaming: false,
+        isResetting: false,
         sessionId: null,
         error: null,
         isAtBottom: true,
@@ -23,6 +29,7 @@ describe('useChatStore', () => {
     expect(result.current.sessionId).toBe(null);
     expect(result.current.error).toBe(null);
     expect(result.current.isAtBottom).toBe(true);
+    expect(result.current.isResetting).toBe(false);
   });
 
   it('should add a message', () => {
@@ -131,6 +138,27 @@ describe('useChatStore', () => {
     expect(result.current.isStreaming).toBe(false);
   });
 
+  describe('isResetting state', () => {
+    it('defaults to false', () => {
+      const { result } = renderHook(() => useChatStore());
+      expect(result.current.isResetting).toBe(false);
+    });
+
+    it('updates via setResetting', () => {
+      const { result } = renderHook(() => useChatStore());
+
+      act(() => {
+        result.current.setResetting(true);
+      });
+      expect(result.current.isResetting).toBe(true);
+
+      act(() => {
+        result.current.setResetting(false);
+      });
+      expect(result.current.isResetting).toBe(false);
+    });
+  });
+
   it('should update session ID', () => {
     const { result } = renderHook(() => useChatStore());
 
@@ -198,5 +226,105 @@ describe('useChatStore', () => {
     });
 
     expect(result.current.isAtBottom).toBe(true);
+  });
+});
+
+describe('clearSession async action', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    act(() => {
+      useChatStore.setState({
+        messages: [
+          { id: '1', role: 'user', content: 'Hello', timestamp: new Date() },
+          { id: '2', role: 'assistant', content: 'Hi', timestamp: new Date() },
+        ],
+        sessionId: 'old-session-123',
+        isStreaming: false,
+        isResetting: false,
+        error: null,
+        isAtBottom: false,
+      });
+    });
+  });
+
+  it('should clear session successfully and reset all state', async () => {
+    const { resetSession } = await import('@/services/sse');
+    vi.mocked(resetSession).mockResolvedValue('new-session-456');
+
+    const { result } = renderHook(() => useChatStore());
+
+    expect(result.current.messages).toHaveLength(2);
+    expect(result.current.sessionId).toBe('old-session-123');
+
+    await act(async () => {
+      await result.current.clearSession();
+    });
+
+    expect(result.current.messages).toEqual([]);
+    expect(result.current.sessionId).toBe('new-session-456');
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.isAtBottom).toBe(true);
+    expect(result.current.isResetting).toBe(false);
+    expect(result.current.error).toBe(null);
+  });
+
+  it('should set isResetting to true during reset', async () => {
+    const { resetSession } = await import('@/services/sse');
+    let resolveReset: (value: string) => void;
+    const resetPromise = new Promise<string>((resolve) => {
+      resolveReset = resolve;
+    });
+    vi.mocked(resetSession).mockReturnValue(resetPromise);
+
+    const { result } = renderHook(() => useChatStore());
+
+    // Start clearSession but don't await yet
+    let clearPromise: Promise<void>;
+    act(() => {
+      clearPromise = result.current.clearSession();
+    });
+
+    // isResetting should be true while waiting
+    expect(result.current.isResetting).toBe(true);
+
+    // Resolve the reset
+    await act(async () => {
+      resolveReset('new-session-789');
+      await clearPromise;
+    });
+
+    // isResetting should be false after completion
+    expect(result.current.isResetting).toBe(false);
+  });
+
+  it('should handle error and set error state', async () => {
+    const { resetSession } = await import('@/services/sse');
+    vi.mocked(resetSession).mockRejectedValue(new Error('Network error'));
+
+    const { result } = renderHook(() => useChatStore());
+
+    await act(async () => {
+      await result.current.clearSession();
+    });
+
+    expect(result.current.error).toBe('Network error');
+    expect(result.current.isResetting).toBe(false);
+    // Messages should NOT be cleared on error
+    expect(result.current.messages).toHaveLength(2);
+    expect(result.current.sessionId).toBe('old-session-123');
+  });
+
+  it('should handle non-Error exceptions', async () => {
+    const { resetSession } = await import('@/services/sse');
+    vi.mocked(resetSession).mockRejectedValue('String error');
+
+    const { result } = renderHook(() => useChatStore());
+
+    await act(async () => {
+      await result.current.clearSession();
+    });
+
+    expect(result.current.error).toBe('Failed to reset session');
+    expect(result.current.isResetting).toBe(false);
   });
 });
