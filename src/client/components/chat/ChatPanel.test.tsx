@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { forwardRef } from 'react';
 import type { VirtuosoProps, VirtuosoHandle } from 'react-virtuoso';
+import type { Todo } from '@shared/types';
 import { ChatPanel, ExamplePrompt } from './ChatPanel';
 
 const findMessageBubble = (element: HTMLElement): HTMLElement | null => {
@@ -24,6 +25,8 @@ const mockSetStreaming = vi.fn();
 const mockSetSessionId = vi.fn();
 const mockSetError = vi.fn();
 const mockClearSession = vi.fn();
+const mockSetTodos = vi.fn<(todos: Todo[]) => void>();
+const mockClearTodos = vi.fn<() => void>();
 
 // Default mock state
 let mockStoreState = {
@@ -93,6 +96,26 @@ vi.mock('@/stores/chatStore', () => ({
     clearSession: mockClearSession,
     setResetting: vi.fn(),
   })),
+}));
+
+// Mock progress store
+vi.mock('@/stores/progressStore', () => ({
+  useProgressStore: vi.fn(
+    (
+      selector?: (state: {
+        todos: [];
+        setTodos: typeof mockSetTodos;
+        clearTodos: typeof mockClearTodos;
+      }) => unknown
+    ) => {
+      const state = {
+        todos: [],
+        setTodos: mockSetTodos,
+        clearTodos: mockClearTodos,
+      };
+      return selector ? selector(state) : state;
+    }
+  ),
 }));
 
 describe('ChatPanel', () => {
@@ -303,6 +326,73 @@ describe('ChatPanel', () => {
     });
   });
 
+  describe('Progress Events', () => {
+    it('maps progress event todos into progress store', async () => {
+      const user = userEvent.setup();
+      mockStoreState.sessionId = 'test-session';
+      mockStoreState.isStreaming = false;
+
+      const { sendAndStream } = await import('@/services/sse');
+      vi.mocked(sendAndStream).mockImplementation((_sessionId, _message, options) => {
+        options.onEvent({
+          type: 'progress',
+          todos: [
+            {
+              content: 'Read config',
+              status: 'pending',
+              active_form: 'Reading config...',
+            },
+          ],
+        });
+        options.onComplete();
+      });
+
+      render(<ChatPanel />);
+
+      await user.type(screen.getByRole('textbox'), 'Hello');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+
+      await waitFor(() => {
+        expect(mockSetTodos).toHaveBeenCalledTimes(1);
+      });
+
+      const [todos] = mockSetTodos.mock.calls[0] as [Todo[]];
+      expect(todos).toHaveLength(1);
+      expect(todos[0]).toMatchObject({
+        content: 'Read config',
+        status: 'pending',
+        activeForm: 'Reading config...',
+      });
+      expect(typeof todos[0].id).toBe('string');
+      expect(todos[0].id.length).toBeGreaterThan(0);
+    });
+
+    it('clears todos when complete event is received', async () => {
+      const user = userEvent.setup();
+      mockStoreState.sessionId = 'test-session';
+      mockStoreState.isStreaming = false;
+
+      const { sendAndStream } = await import('@/services/sse');
+      vi.mocked(sendAndStream).mockImplementation((_sessionId, _message, options) => {
+        options.onEvent({
+          type: 'complete',
+          input_tokens: 100,
+          output_tokens: 50,
+        });
+        options.onComplete();
+      });
+
+      render(<ChatPanel />);
+
+      await user.type(screen.getByRole('textbox'), 'Hello');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+
+      await waitFor(() => {
+        expect(mockClearTodos).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+
   describe('Error Display', () => {
     it('renders error message when error exists', () => {
       mockStoreState.messages = [
@@ -415,6 +505,16 @@ describe('ChatPanel', () => {
       expect(
         screen.getByRole('button', { name: /clear/i }).querySelector('.animate-spin')
       ).toBeInTheDocument();
+    });
+
+    it('clears progress todos when clearing conversation', async () => {
+      const user = userEvent.setup();
+      render(<ChatPanel />);
+
+      await user.click(screen.getByRole('button', { name: /clear/i }));
+
+      expect(mockClearTodos).toHaveBeenCalledTimes(1);
+      expect(mockClearSession).toHaveBeenCalledTimes(1);
     });
   });
 });

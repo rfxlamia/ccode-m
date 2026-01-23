@@ -4,6 +4,7 @@ import { ChatInput, type ChatInputHandle } from './ChatInput';
 import { VirtualizedMessageList } from './VirtualizedMessageList';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useChatStore } from '@/stores/chatStore';
+import { useProgressStore } from '@/stores/progressStore';
 import { sendAndStream, getSessionId } from '@/services/sse';
 
 /** Props for example prompt buttons */
@@ -48,6 +49,8 @@ export function ChatPanel(): JSX.Element {
     setError,
     clearSession,
   } = useChatStore();
+  const setTodos = useProgressStore((state) => state.setTodos);
+  const clearTodos = useProgressStore((state) => state.clearTodos);
 
   // Focus helper for keyboard shortcut
   const focusInput = useCallback(() => {
@@ -128,6 +131,15 @@ export function ChatPanel(): JSX.Element {
               input_tokens: event.input_tokens,
               output_tokens: event.output_tokens,
             });
+            clearTodos();
+          } else if (event.type === 'progress') {
+            const todosWithIds = event.todos.map((todo, index) => ({
+              id: `todo-${String(index)}`,
+              content: todo.content,
+              status: todo.status,
+              activeForm: todo.active_form,
+            }));
+            setTodos(todosWithIds);
           } else if (event.type === 'error') {
             setError(event.error_message);
             finalizeLastMessage();
@@ -151,6 +163,8 @@ export function ChatPanel(): JSX.Element {
       finalizeLastMessage,
       setStreaming,
       setError,
+      setTodos,
+      clearTodos,
     ]
   );
 
@@ -172,8 +186,9 @@ export function ChatPanel(): JSX.Element {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
 
+    clearTodos();
     void clearSession();
-  }, [isStreaming, isResetting, clearSession]);
+  }, [isStreaming, isResetting, clearTodos, clearSession]);
 
   return (
     <main

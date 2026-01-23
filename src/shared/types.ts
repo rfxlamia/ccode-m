@@ -124,3 +124,16 @@ export interface ChatMessage {
     output_tokens: number;
   };
 }
+
+// ============================================
+// Progress Todo Types (Frontend State)
+// ============================================
+
+export type TodoStatus = 'pending' | 'in_progress' | 'completed';
+
+export interface Todo {
+  id: string;
+  content: string;
+  status: TodoStatus;
+  activeForm: string;
+}
