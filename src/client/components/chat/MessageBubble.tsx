@@ -10,7 +10,7 @@ interface MessageBubbleProps {
 
 export const MessageBubble = memo(function MessageBubble({
   message,
-}: MessageBubbleProps): JSX.Element {
+}: MessageBubbleProps): React.ReactElement {
   const isAssistant = message.role === 'assistant';
   const hasStreamedRef = useRef(message.isStreaming === true);
   const [isSkipped, setIsSkipped] = useState(false);

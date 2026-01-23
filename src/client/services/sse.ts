@@ -29,7 +29,7 @@ export async function sendAndStream(
     // 1. Connect to SSE stream FIRST (before sending message)
     const streamResponse = await fetch(`/api/chat/stream/${sessionId}`, {
       headers: { Accept: 'text/event-stream' },
-      signal,
+      ...(signal && { signal }),
     });
 
     if (!streamResponse.ok || !streamResponse.body) {
@@ -41,7 +41,7 @@ export async function sendAndStream(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, sessionId }),
-      signal,
+      ...(signal && { signal }),
     });
 
     if (!sendResponse.ok) {
@@ -93,7 +93,9 @@ export async function sendAndStream(
  * Fetch session ID from server
  */
 export async function getSessionId(signal?: AbortSignal): Promise<string> {
-  const response = await fetch('/api/chat/session', { signal });
+  const response = await fetch('/api/chat/session', {
+    ...(signal && { signal }),
+  });
   if (!response.ok) {
     throw new Error('Failed to get session');
   }
@@ -110,7 +112,7 @@ export async function getSessionId(signal?: AbortSignal): Promise<string> {
 export async function resetSession(signal?: AbortSignal): Promise<string> {
   const response = await fetch('/api/chat/session', {
     method: 'DELETE',
-    signal,
+    ...(signal && { signal }),
   });
 
   if (!response.ok) {

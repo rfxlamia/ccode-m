@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 function ResizablePanelGroup({
   className,
   ...props
-}: React.ComponentProps<typeof Group>): JSX.Element {
+}: React.ComponentProps<typeof Group>): React.ReactElement {
   return (
     <Group
       data-slot="resizable-panel-group"
@@ -22,7 +22,7 @@ function ResizablePanelGroup({
 
 function ResizablePanel({
   ...props
-}: React.ComponentProps<typeof Panel>): JSX.Element {
+}: React.ComponentProps<typeof Panel>): React.ReactElement {
   return <Panel data-slot="resizable-panel" {...props} />;
 }
 
@@ -32,7 +32,7 @@ function ResizableHandle({
   ...props
 }: React.ComponentProps<typeof Separator> & {
   withHandle?: boolean;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <Separator
       data-slot="resizable-handle"

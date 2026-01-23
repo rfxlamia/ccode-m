@@ -5,7 +5,7 @@ interface TodoItemProps {
   todo: Todo;
 }
 
-export function TodoItem({ todo }: TodoItemProps): JSX.Element {
+export function TodoItem({ todo }: TodoItemProps): React.ReactElement {
   const isCompleted = todo.status === 'completed';
   const isInProgress = todo.status === 'in_progress';
 

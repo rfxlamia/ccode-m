@@ -10,7 +10,7 @@ import { ProgressPanel } from '@/components/progress/ProgressPanel';
 /** Default layout: 20% left, 60% center, 20% right */
 const DEFAULT_LAYOUT = { files: 20, chat: 60, progress: 20 };
 
-export function ThreePanelLayout(): JSX.Element {
+export function ThreePanelLayout(): React.ReactElement {
   return (
     <div className="h-screen bg-background text-foreground">
       <a

@@ -39,7 +39,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       onChange: onControlledChange,
     },
     ref
-  ): JSX.Element {
+  ): React.ReactElement {
   // Support both controlled and uncontrolled modes
   const [internalValue, setInternalValue] = useState('');
   const message = controlledValue ?? internalValue;

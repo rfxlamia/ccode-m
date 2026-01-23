@@ -2,7 +2,7 @@ import { FileIcon, ListTodoIcon } from 'lucide-react';
 import { useProgressStore } from '@/stores/progressStore';
 import { TodoItem } from './TodoItem';
 
-export function ProgressPanel(): JSX.Element {
+export function ProgressPanel(): React.ReactElement {
   const todos = useProgressStore((state) => state.todos);
   const hasTodos = todos.length > 0;
 

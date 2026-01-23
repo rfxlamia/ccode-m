@@ -1,6 +1,6 @@
 import { FolderIcon } from 'lucide-react';
 
-export function ProjectFilesPanel(): JSX.Element {
+export function ProjectFilesPanel(): React.ReactElement {
   return (
     <aside
       role="complementary"
