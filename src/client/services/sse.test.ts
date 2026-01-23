@@ -148,7 +148,9 @@ describe('sse service', () => {
       await sendAndStream('test-session', 'Hi', { onEvent, onError, onComplete });
 
       expect(onError).toHaveBeenCalled();
-      const errorArg = onError.mock.calls[0][0] as Error;
+      const errorCall = onError.mock.calls[0];
+      if (!errorCall) throw new Error('Expected error call');
+      const errorArg = errorCall[0] as Error;
       expect(errorArg.message).toContain('Stream failed');
     });
 
@@ -182,7 +184,9 @@ describe('sse service', () => {
       await sendAndStream('test-session', 'Hi', { onEvent, onError, onComplete });
 
       expect(onError).toHaveBeenCalled();
-      const errorArg = onError.mock.calls[0][0] as Error;
+      const errorCall = onError.mock.calls[0];
+      if (!errorCall) throw new Error('Expected error call');
+      const errorArg = errorCall[0] as Error;
       expect(errorArg.message).toContain('Send failed');
     });
 

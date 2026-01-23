@@ -63,7 +63,7 @@ vi.mock('react-virtuoso', () => {
         <div data-testid="virtuoso-container">
           {(items as unknown[]).map((item, index) => (
             <div key={String(index)} data-testid={`virtuoso-item-${String(index)}`}>
-              {props.itemContent ? props.itemContent(index, item) : null}
+              {props.itemContent ? props.itemContent(index, item, undefined) : null}
             </div>
           ))}
         </div>
@@ -103,13 +103,13 @@ vi.mock('@/stores/progressStore', () => ({
   useProgressStore: vi.fn(
     (
       selector?: (state: {
-        todos: [];
+        todos: Todo[];
         setTodos: typeof mockSetTodos;
         clearTodos: typeof mockClearTodos;
       }) => unknown
     ) => {
       const state = {
-        todos: [],
+        todos: [] as Todo[],
         setTodos: mockSetTodos,
         clearTodos: mockClearTodos,
       };
@@ -345,6 +345,7 @@ describe('ChatPanel', () => {
           ],
         });
         options.onComplete();
+        return Promise.resolve();
       });
 
       render(<ChatPanel />);
@@ -356,15 +357,19 @@ describe('ChatPanel', () => {
         expect(mockSetTodos).toHaveBeenCalledTimes(1);
       });
 
-      const [todos] = mockSetTodos.mock.calls[0] as [Todo[]];
+      const firstCall = mockSetTodos.mock.calls[0];
+      if (!firstCall) throw new Error('Expected mock to be called');
+      const [todos] = firstCall as [Todo[]];
       expect(todos).toHaveLength(1);
-      expect(todos[0]).toMatchObject({
+      const firstTodo = todos[0];
+      if (!firstTodo) throw new Error('Expected todo to exist');
+      expect(firstTodo).toMatchObject({
         content: 'Read config',
         status: 'pending',
         activeForm: 'Reading config...',
       });
-      expect(typeof todos[0].id).toBe('string');
-      expect(todos[0].id.length).toBeGreaterThan(0);
+      expect(typeof firstTodo.id).toBe('string');
+      expect(firstTodo.id.length).toBeGreaterThan(0);
     });
 
     it('clears todos when complete event is received', async () => {
@@ -380,6 +385,7 @@ describe('ChatPanel', () => {
           output_tokens: 50,
         });
         options.onComplete();
+        return Promise.resolve();
       });
 
       render(<ChatPanel />);

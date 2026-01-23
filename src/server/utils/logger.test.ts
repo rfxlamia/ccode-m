@@ -41,7 +41,9 @@ describe('log', () => {
 
       expect(console.log).toHaveBeenCalledTimes(1);
       const mockFn = console.log as ReturnType<typeof vi.fn>;
-      const output = mockFn.mock.calls[0][0] as string;
+      const callArgs = mockFn.mock.calls[0];
+      if (!callArgs) throw new Error('Expected log call');
+      const output = callArgs[0] as string;
       const parsed = JSON.parse(output) as LogOutput;
 
       expect(parsed.level).toBe('info');
@@ -53,7 +55,9 @@ describe('log', () => {
       log.info({}, 'Empty data');
 
       const mockFn = console.log as ReturnType<typeof vi.fn>;
-      const output = mockFn.mock.calls[0][0] as string;
+      const callArgs = mockFn.mock.calls[0];
+      if (!callArgs) throw new Error('Expected log call');
+      const output = callArgs[0] as string;
       const parsed = JSON.parse(output) as LogOutput;
 
       expect(parsed.level).toBe('info');
@@ -67,7 +71,9 @@ describe('log', () => {
 
       expect(console.warn).toHaveBeenCalledTimes(1);
       const mockFn = console.warn as ReturnType<typeof vi.fn>;
-      const output = mockFn.mock.calls[0][0] as string;
+      const callArgs = mockFn.mock.calls[0];
+      if (!callArgs) throw new Error('Expected warn call');
+      const output = callArgs[0] as string;
       const parsed = JSON.parse(output) as LogOutput;
 
       expect(parsed.level).toBe('warn');
@@ -82,7 +88,9 @@ describe('log', () => {
 
       expect(console.error).toHaveBeenCalledTimes(1);
       const mockFn = console.error as ReturnType<typeof vi.fn>;
-      const output = mockFn.mock.calls[0][0] as string;
+      const callArgs = mockFn.mock.calls[0];
+      if (!callArgs) throw new Error('Expected error call');
+      const output = callArgs[0] as string;
       const parsed = JSON.parse(output) as LogOutput;
 
       expect(parsed.level).toBe('error');
@@ -99,7 +107,9 @@ describe('log', () => {
       );
 
       const mockFn = console.log as ReturnType<typeof vi.fn>;
-      const output = mockFn.mock.calls[0][0] as string;
+      const callArgs = mockFn.mock.calls[0];
+      if (!callArgs) throw new Error('Expected log call');
+      const output = callArgs[0] as string;
       const parsed = JSON.parse(output) as LogOutput;
 
       expect(parsed.level).toBe('info');
@@ -113,7 +123,9 @@ describe('log', () => {
       log.info({ metadata: { nested: true } }, 'Nested data');
 
       const mockFn = console.log as ReturnType<typeof vi.fn>;
-      const output = mockFn.mock.calls[0][0] as string;
+      const callArgs = mockFn.mock.calls[0];
+      if (!callArgs) throw new Error('Expected log call');
+      const output = callArgs[0] as string;
       const parsed = JSON.parse(output) as LogOutput;
 
       expect(parsed.metadata).toEqual({ nested: true });

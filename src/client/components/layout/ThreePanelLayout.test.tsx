@@ -45,7 +45,9 @@ describe('ThreePanelLayout', () => {
     expect(buttons.length).toBeGreaterThan(0);
 
     // Focus first button and verify focus moves through elements
-    buttons[0].focus();
+    const firstButton = buttons[0];
+    if (!firstButton) throw new Error('Expected button to exist');
+    firstButton.focus();
     expect(buttons[0]).toHaveFocus();
 
     // Tab to next button

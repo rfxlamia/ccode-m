@@ -19,30 +19,32 @@ type SyntaxTheme = Record<string, CSSProperties>;
 type TypewriterMarkdownProps = {
   content: string;
   isTyping?: boolean;
-  onClick?: () => void;
+  onClick?: (() => void) | undefined;
 };
 
 export const TypewriterMarkdown = memo(function TypewriterMarkdown({
   content,
   isTyping = false,
   onClick,
-}: TypewriterMarkdownProps): JSX.Element {
+}: TypewriterMarkdownProps): React.ReactElement {
   const sanitized = useMemo(() => sanitizePartialMarkdown(content), [content]);
 
   const markdownComponents: Components = {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    code({ inline, className, children, node, ...props }) {
-      const match = /language-(\w+)/.exec(className || '');
+    code({ className, children, ...props }) {
+      // Detect inline vs block code by checking for language class
+      const match = /language-(\w+)/.exec(className ?? '');
+      const isInline = !match;
       const codeText = Array.isArray(children)
         ? children.join('')
         : typeof children === 'string' || typeof children === 'number'
           ? String(children)
           : '';
 
-      if (!inline && match) {
+      if (!isInline) {
+        const language = match[1] ?? 'text';
         return (
           <Suspense fallback={<pre className="bg-muted p-2">{codeText}</pre>}>
-            <CodeBlock language={match[1]}>{codeText}</CodeBlock>
+            <CodeBlock language={language}>{codeText}</CodeBlock>
           </Suspense>
         );
       }
@@ -79,7 +81,7 @@ export const TypewriterMarkdown = memo(function TypewriterMarkdown({
   );
 });
 
-function CodeBlock({ language, children }: { language: string; children: string }): JSX.Element {
+function CodeBlock({ language, children }: { language: string; children: string }): React.ReactElement {
   const [Highlighter, setHighlighter] = useState<ComponentType<SyntaxHighlighterProps> | null>(
     null
   );
@@ -88,17 +90,17 @@ function CodeBlock({ language, children }: { language: string; children: string 
   useEffect(() => {
     let isActive = true;
 
-    const loadHighlighter = import('react-syntax-highlighter/dist/esm/prism') as Promise<{
-      Prism: ComponentType<SyntaxHighlighterProps>;
-    }>;
-    const loadStyle = import('react-syntax-highlighter/dist/esm/styles/prism/one-dark') as Promise<{
-      default: SyntaxTheme;
-    }>;
+    const loadHighlighter = import('react-syntax-highlighter/dist/esm/prism').then(
+      (mod) => mod.default as ComponentType<SyntaxHighlighterProps>
+    );
+    const loadStyle = import('react-syntax-highlighter/dist/esm/styles/prism/one-dark').then(
+      (mod) => mod.default as SyntaxTheme
+    );
 
-    void Promise.all([loadHighlighter, loadStyle]).then(([highlighterModule, styleModule]) => {
+    void Promise.all([loadHighlighter, loadStyle]).then(([highlighterComponent, styleTheme]) => {
       if (!isActive) return;
-      setHighlighter(() => highlighterModule.Prism);
-      setStyle(styleModule.default);
+      setHighlighter(() => highlighterComponent);
+      setStyle(styleTheme);
     });
 
     return () => {

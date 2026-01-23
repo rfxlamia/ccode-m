@@ -73,7 +73,9 @@ describe('useChatStore', () => {
       result.current.appendToLastMessage(' there');
     });
 
-    expect(result.current.messages[1].content).toBe('Hi there');
+    const message = result.current.messages[1];
+    if (!message) throw new Error('Expected message to exist');
+    expect(message.content).toBe('Hi there');
   });
 
   it('should not append to user message', () => {
@@ -92,7 +94,9 @@ describe('useChatStore', () => {
       result.current.appendToLastMessage(' extra');
     });
 
-    expect(result.current.messages[0].content).toBe('Hello');
+    const userMessage = result.current.messages[0];
+    if (!userMessage) throw new Error('Expected user message to exist');
+    expect(userMessage.content).toBe('Hello');
   });
 
   it('should finalize last message', () => {
@@ -115,8 +119,10 @@ describe('useChatStore', () => {
       });
     });
 
-    expect(result.current.messages[0].isStreaming).toBe(false);
-    expect(result.current.messages[0].usage).toEqual({
+    const finalizedMessage = result.current.messages[0];
+    if (!finalizedMessage) throw new Error('Expected finalized message to exist');
+    expect(finalizedMessage.isStreaming).toBe(false);
+    expect(finalizedMessage.usage).toEqual({
       input_tokens: 10,
       output_tokens: 20,
     });

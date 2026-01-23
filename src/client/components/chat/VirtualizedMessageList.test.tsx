@@ -25,7 +25,7 @@ vi.mock('react-virtuoso', () => {
         <div data-testid="virtuoso-container">
           {(items as unknown[]).map((item, index) => (
             <div key={String(index)} data-testid={`virtuoso-item-${String(index)}`}>
-              {props.itemContent ? props.itemContent(index, item) : null}
+              {props.itemContent ? props.itemContent(index, item, undefined) : null}
             </div>
           ))}
         </div>
