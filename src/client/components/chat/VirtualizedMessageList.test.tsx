@@ -4,7 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { forwardRef } from 'react';
 import type { VirtuosoProps, VirtuosoHandle } from 'react-virtuoso';
 import { VirtualizedMessageList } from './VirtualizedMessageList';
-import type { ChatMessage } from '@shared/types';
+import type { ChatMessage, ToolInvocation } from '@shared/types';
+import type { StreamItem } from '@/hooks/useUnifiedStream';
 
 vi.mock('react-virtuoso', () => {
   const Virtuoso = forwardRef<VirtuosoHandle, VirtuosoProps<unknown, unknown>>(
@@ -53,6 +54,12 @@ vi.mock('./MessageBubble', () => ({
   ),
 }));
 
+vi.mock('./ToolCard', () => ({
+  ToolCard: ({ tool }: { tool: ToolInvocation }) => (
+    <div data-testid={`tool-${tool.toolName}`}>{tool.toolName}</div>
+  ),
+}));
+
 describe('src/client/components/chat/VirtualizedMessageList.tsx', () => {
   const createMessage = (
     id: string,
@@ -66,6 +73,15 @@ describe('src/client/components/chat/VirtualizedMessageList.tsx', () => {
     isStreaming: false,
   });
 
+  const createTool = (id: string, toolName: string): ToolInvocation => ({
+    id,
+    toolName,
+    toolInput: { command: 'ls' },
+    status: 'pending',
+    timestamp: new Date(),
+    isExpanded: false,
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsAtBottom = true; // Reset to default
@@ -77,8 +93,9 @@ describe('src/client/components/chat/VirtualizedMessageList.tsx', () => {
       createMessage('2', 'assistant', 'Hi there!'),
       createMessage('3', 'user', 'How are you?'),
     ];
+    const items: StreamItem[] = messages.map((message) => ({ type: 'message', data: message }));
 
-    render(<VirtualizedMessageList messages={messages} />);
+    render(<VirtualizedMessageList items={items} />);
 
     expect(screen.getByTestId('virtuoso-container')).toBeInTheDocument();
     expect(screen.getByText('Hello')).toBeInTheDocument();
@@ -89,27 +106,30 @@ describe('src/client/components/chat/VirtualizedMessageList.tsx', () => {
   it('does not show jump-to-bottom when at bottom', () => {
     mockIsAtBottom = true;
     const messages = [createMessage('1', 'user', 'Hello')];
-    render(<VirtualizedMessageList messages={messages} />);
+    const items: StreamItem[] = messages.map((message) => ({ type: 'message', data: message }));
+    render(<VirtualizedMessageList items={items} />);
     expect(screen.queryByTestId('jump-to-bottom')).not.toBeInTheDocument();
   });
 
   it('shows jump-to-bottom button when not at bottom', () => {
     mockIsAtBottom = false;
     const messages = [createMessage('1', 'user', 'Hello')];
-    render(<VirtualizedMessageList messages={messages} />);
+    const items: StreamItem[] = messages.map((message) => ({ type: 'message', data: message }));
+    render(<VirtualizedMessageList items={items} />);
     expect(screen.getByTestId('jump-to-bottom')).toBeInTheDocument();
   });
 
   it('does not show jump-to-bottom when no messages', () => {
     mockIsAtBottom = false;
-    render(<VirtualizedMessageList messages={[]} />);
+    render(<VirtualizedMessageList items={[]} />);
     expect(screen.queryByTestId('jump-to-bottom')).not.toBeInTheDocument();
   });
 
   it('jump-to-bottom button has correct accessibility attributes', () => {
     mockIsAtBottom = false;
     const messages = [createMessage('1', 'user', 'Hello')];
-    render(<VirtualizedMessageList messages={messages} />);
+    const items: StreamItem[] = messages.map((message) => ({ type: 'message', data: message }));
+    render(<VirtualizedMessageList items={items} />);
     const button = screen.getByTestId('jump-to-bottom');
     expect(button).toHaveAttribute('aria-label', 'Jump to bottom');
     expect(button).toHaveAttribute('type', 'button');
@@ -119,7 +139,8 @@ describe('src/client/components/chat/VirtualizedMessageList.tsx', () => {
     mockIsAtBottom = false;
     const user = userEvent.setup();
     const messages = [createMessage('1', 'user', 'Hello')];
-    render(<VirtualizedMessageList messages={messages} />);
+    const items: StreamItem[] = messages.map((message) => ({ type: 'message', data: message }));
+    render(<VirtualizedMessageList items={items} />);
     const button = screen.getByTestId('jump-to-bottom');
     await user.click(button);
     // Button click should not throw - interaction is handled by scrollToBottom
@@ -127,14 +148,27 @@ describe('src/client/components/chat/VirtualizedMessageList.tsx', () => {
   });
 
   it('renders container with proper accessibility attributes', () => {
-    render(<VirtualizedMessageList messages={[]} />);
+    render(<VirtualizedMessageList items={[]} />);
     const container = screen.getByTestId('message-list-container');
     expect(container).toHaveAttribute('role', 'log');
     expect(container).toHaveAttribute('aria-label', 'Message history');
   });
 
   it('renders empty container when no messages', () => {
-    render(<VirtualizedMessageList messages={[]} />);
+    render(<VirtualizedMessageList items={[]} />);
     expect(screen.getByTestId('virtuoso-container')).toBeInTheDocument();
+  });
+
+  it('renders interleaved tools and messages', () => {
+    const items: StreamItem[] = [
+      { type: 'message', data: createMessage('1', 'user', 'Hello') },
+      { type: 'tool', data: createTool('tool-1', 'Read') },
+      { type: 'message', data: createMessage('2', 'assistant', 'Done') },
+    ];
+
+    render(<VirtualizedMessageList items={items} />);
+    expect(screen.getByText('Hello')).toBeInTheDocument();
+    expect(screen.getByTestId('tool-Read')).toBeInTheDocument();
+    expect(screen.getByText('Done')).toBeInTheDocument();
   });
 });

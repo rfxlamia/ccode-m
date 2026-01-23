@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { SSEEventSchema, HealthResponseSchema, ProblemDetailsSchema } from './types';
+import { describe, it, expect, expectTypeOf } from 'vitest';
+import {
+  SSEEventSchema,
+  HealthResponseSchema,
+  ProblemDetailsSchema,
+  type ToolInvocation,
+  type ToolStatus,
+} from './types';
 
 describe('src/shared/types.ts', () => {
   describe('SSEEventSchema', () => {
@@ -100,6 +106,24 @@ describe('src/shared/types.ts', () => {
       };
       const result = ProblemDetailsSchema.safeParse(problem);
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe('Tool Types', () => {
+    it('should define ToolStatus union', () => {
+      expectTypeOf<ToolStatus>().toEqualTypeOf<'pending' | 'complete' | 'error'>();
+    });
+
+    it('should define ToolInvocation shape', () => {
+      const tool: ToolInvocation = {
+        id: 'tool-0',
+        toolName: 'Read',
+        toolInput: { file_path: '/tmp/example.txt' },
+        status: 'pending',
+        timestamp: new Date(),
+        isExpanded: false,
+      };
+      expect(tool.status).toBe('pending');
     });
   });
 });

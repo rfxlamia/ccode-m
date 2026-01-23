@@ -118,11 +118,31 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  isStreaming?: boolean;
-  usage?: {
-    input_tokens: number;
-    output_tokens: number;
-  };
+  isStreaming?: boolean | undefined;
+  usage?:
+    | {
+        input_tokens: number;
+        output_tokens: number;
+      }
+    | undefined;
+}
+
+// ============================================
+// Tool Invocation Types (Frontend State)
+// ============================================
+
+export type ToolStatus = 'pending' | 'complete' | 'error';
+
+export interface ToolInvocation {
+  id: string;
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  status: ToolStatus;
+  result?: string | undefined;
+  errorMessage?: string | undefined;
+  isCached?: boolean | undefined;
+  timestamp: Date;
+  isExpanded: boolean;
 }
 
 // ============================================

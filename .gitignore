@@ -24,3 +24,11 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# TypeScript build artifacts (from accidental tsc without --noEmit)
+*.js.map
+*.d.ts.map
+src/**/*.js
+!src/vite-env.d.ts
+e2e/**/*.js
+e2e/**/*.d.ts

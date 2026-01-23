@@ -3,8 +3,10 @@ import { MessageCircleIcon, Trash2Icon, Loader2Icon } from 'lucide-react';
 import { ChatInput, type ChatInputHandle } from './ChatInput';
 import { VirtualizedMessageList } from './VirtualizedMessageList';
 import { useKeyboard } from '@/hooks/useKeyboard';
+import { useUnifiedStream } from '@/hooks/useUnifiedStream';
 import { useChatStore } from '@/stores/chatStore';
 import { useProgressStore } from '@/stores/progressStore';
+import { useToolStore } from '@/stores/toolStore';
 import { sendAndStream, getSessionId } from '@/services/sse';
 
 /** Props for example prompt buttons */
@@ -16,7 +18,7 @@ export type ExamplePromptProps = {
 };
 
 /** Example prompt button that users can click to start a conversation */
-export function ExamplePrompt({ text, onClick }: ExamplePromptProps): JSX.Element {
+export function ExamplePrompt({ text, onClick }: ExamplePromptProps): React.ReactElement {
   return (
     <button
       type="button"
@@ -29,7 +31,7 @@ export function ExamplePrompt({ text, onClick }: ExamplePromptProps): JSX.Elemen
   );
 }
 
-export function ChatPanel(): JSX.Element {
+export function ChatPanel(): React.ReactElement {
   const [inputValue, setInputValue] = useState('');
   const chatInputRef = useRef<ChatInputHandle>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -51,6 +53,13 @@ export function ChatPanel(): JSX.Element {
   } = useChatStore();
   const setTodos = useProgressStore((state) => state.setTodos);
   const clearTodos = useProgressStore((state) => state.clearTodos);
+  const tools = useToolStore((state) => state.tools);
+  const addToolUse = useToolStore((state) => state.addToolUse);
+  const updateToolResult = useToolStore((state) => state.updateToolResult);
+  const setToolError = useToolStore((state) => state.setToolError);
+  const clearTools = useToolStore((state) => state.clearTools);
+
+  const items = useUnifiedStream(messages, tools);
 
   // Focus helper for keyboard shortcut
   const focusInput = useCallback(() => {
@@ -126,12 +135,29 @@ export function ChatPanel(): JSX.Element {
         onEvent: (event) => {
           if (event.type === 'message') {
             appendToLastMessage(event.content);
+          } else if (event.type === 'tool_use') {
+            const toolInput =
+              typeof event.tool_input === 'object' && event.tool_input !== null
+                ? (event.tool_input as Record<string, unknown>)
+                : {};
+            addToolUse({
+              toolName: event.tool_name,
+              toolInput,
+              timestamp: new Date(),
+            });
+          } else if (event.type === 'tool_result') {
+            if (event.tool_output.startsWith('Error:')) {
+              setToolError(event.tool_output);
+            } else {
+              updateToolResult(event.tool_output, event.is_cached);
+            }
           } else if (event.type === 'complete') {
             finalizeLastMessage({
               input_tokens: event.input_tokens,
               output_tokens: event.output_tokens,
             });
             clearTodos();
+            clearTools();
           } else if (event.type === 'progress') {
             const todosWithIds = event.todos.map((todo, index) => ({
               id: `todo-${String(index)}`,
@@ -165,6 +191,10 @@ export function ChatPanel(): JSX.Element {
       setError,
       setTodos,
       clearTodos,
+      addToolUse,
+      updateToolResult,
+      setToolError,
+      clearTools,
     ]
   );
 
@@ -186,9 +216,10 @@ export function ChatPanel(): JSX.Element {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
 
-    clearTodos();
-    void clearSession();
-  }, [isStreaming, isResetting, clearTodos, clearSession]);
+      clearTodos();
+      clearTools();
+      void clearSession();
+    }, [isStreaming, isResetting, clearTodos, clearTools, clearSession]);
 
   return (
     <main
@@ -197,7 +228,7 @@ export function ChatPanel(): JSX.Element {
       aria-label="Chat"
       className="flex h-full flex-col bg-background"
     >
-      {messages.length > 0 && (
+      {items.length > 0 && (
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
           <span className="text-sm font-medium text-muted-foreground">Chat</span>
           <button
@@ -219,9 +250,9 @@ export function ChatPanel(): JSX.Element {
       )}
 
       {/* Messages area - WITH VIRTUALIZATION */}
-      {messages.length > 0 ? (
+      {items.length > 0 ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <VirtualizedMessageList messages={messages} className="flex-1" />
+          <VirtualizedMessageList items={items} className="flex-1" />
           {error && (
             <div className="p-3 mx-4 mb-2 rounded-lg bg-destructive/10 text-destructive">
               Error: {error}

@@ -1,19 +1,20 @@
 import { useCallback, useRef, type KeyboardEvent } from 'react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { MessageBubble } from './MessageBubble';
+import { ToolCard } from './ToolCard';
 import { useChatStore } from '@/stores/chatStore';
-import type { ChatMessage } from '@shared/types';
+import type { StreamItem } from '@/hooks/useUnifiedStream';
 import { cn } from '@/lib/utils';
 
 interface VirtualizedMessageListProps {
-  messages: ChatMessage[];
+  items: StreamItem[];
   className?: string;
 }
 
 export function VirtualizedMessageList({
-  messages,
+  items,
   className,
-}: VirtualizedMessageListProps): JSX.Element {
+}: VirtualizedMessageListProps): React.ReactElement {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { isAtBottom, setIsAtBottom } = useChatStore();
@@ -76,21 +77,25 @@ export function VirtualizedMessageList({
     >
       <Virtuoso
         ref={virtuosoRef}
-        data={messages}
+        data={items}
         followOutput={handleFollowOutput}
         atBottomStateChange={handleAtBottomStateChange}
         atBottomThreshold={100}
-        initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
-        itemContent={(_index, message) => (
+        initialTopMostItemIndex={items.length > 0 ? items.length - 1 : 0}
+        itemContent={(_index, item) => (
           <div className="px-4 py-2">
-            <MessageBubble message={message} />
+            {item.type === 'message' ? (
+              <MessageBubble message={item.data} />
+            ) : (
+              <ToolCard tool={item.data} />
+            )}
           </div>
         )}
         style={{ height: '100%' }}
         overscan={200}
       />
 
-      {!isAtBottom && messages.length > 0 && (
+      {!isAtBottom && items.length > 0 && (
         <JumpToBottomButton onClick={scrollToBottom} />
       )}
     </div>
@@ -101,7 +106,7 @@ interface JumpToBottomButtonProps {
   onClick: () => void;
 }
 
-function JumpToBottomButton({ onClick }: JumpToBottomButtonProps): JSX.Element {
+function JumpToBottomButton({ onClick }: JumpToBottomButtonProps): React.ReactElement {
   return (
     <button
       type="button"
@@ -124,7 +129,7 @@ function JumpToBottomButton({ onClick }: JumpToBottomButtonProps): JSX.Element {
   );
 }
 
-function ChevronDownIcon({ className }: { className?: string }): JSX.Element {
+function ChevronDownIcon({ className }: { className?: string }): React.ReactElement {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

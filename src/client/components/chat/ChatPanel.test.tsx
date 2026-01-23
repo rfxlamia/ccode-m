@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { forwardRef } from 'react';
 import type { VirtuosoProps, VirtuosoHandle } from 'react-virtuoso';
-import type { Todo } from '@shared/types';
+import type { Todo, ToolInvocation } from '@shared/types';
 import { ChatPanel, ExamplePrompt } from './ChatPanel';
 
 const findMessageBubble = (element: HTMLElement): HTMLElement | null => {
@@ -27,6 +27,11 @@ const mockSetError = vi.fn();
 const mockClearSession = vi.fn();
 const mockSetTodos = vi.fn<(todos: Todo[]) => void>();
 const mockClearTodos = vi.fn<() => void>();
+const mockAddToolUse = vi.fn();
+const mockUpdateToolResult = vi.fn();
+const mockSetToolError = vi.fn();
+const mockClearTools = vi.fn();
+let mockTools: ToolInvocation[] = [];
 
 // Default mock state
 let mockStoreState = {
@@ -118,6 +123,29 @@ vi.mock('@/stores/progressStore', () => ({
   ),
 }));
 
+vi.mock('@/stores/toolStore', () => ({
+  useToolStore: vi.fn(
+    (
+      selector?: (state: {
+        tools: ToolInvocation[];
+        addToolUse: typeof mockAddToolUse;
+        updateToolResult: typeof mockUpdateToolResult;
+        setToolError: typeof mockSetToolError;
+        clearTools: typeof mockClearTools;
+      }) => unknown
+    ) => {
+      const state = {
+        tools: mockTools,
+        addToolUse: mockAddToolUse,
+        updateToolResult: mockUpdateToolResult,
+        setToolError: mockSetToolError,
+        clearTools: mockClearTools,
+      };
+      return selector ? selector(state) : state;
+    }
+  ),
+}));
+
 describe('ChatPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -130,6 +158,7 @@ describe('ChatPanel', () => {
       error: null,
       isAtBottom: true,
     };
+    mockTools = [];
   });
 
   afterEach(() => {
@@ -372,7 +401,7 @@ describe('ChatPanel', () => {
       expect(firstTodo.id.length).toBeGreaterThan(0);
     });
 
-    it('clears todos when complete event is received', async () => {
+    it('clears todos and tools when complete event is received', async () => {
       const user = userEvent.setup();
       mockStoreState.sessionId = 'test-session';
       mockStoreState.isStreaming = false;
@@ -396,6 +425,93 @@ describe('ChatPanel', () => {
       await waitFor(() => {
         expect(mockClearTodos).toHaveBeenCalledTimes(1);
       });
+      expect(mockClearTools).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Tool Events', () => {
+    it('adds tool invocation on tool_use event', async () => {
+      const user = userEvent.setup();
+      mockStoreState.sessionId = 'test-session';
+      mockStoreState.isStreaming = false;
+
+      const { sendAndStream } = await import('@/services/sse');
+      vi.mocked(sendAndStream).mockImplementation((_sessionId, _message, options) => {
+        options.onEvent({
+          type: 'tool_use',
+          tool_name: 'Read',
+          tool_input: { file_path: '/tmp/example.txt' },
+        });
+        options.onComplete();
+        return Promise.resolve();
+      });
+
+      render(<ChatPanel />);
+
+      await user.type(screen.getByRole('textbox'), 'Hello');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+
+      await waitFor(() => {
+        expect(mockAddToolUse).toHaveBeenCalledTimes(1);
+      });
+
+      const [tool] = mockAddToolUse.mock.calls[0] as [{ toolName: string; toolInput: Record<string, unknown>; timestamp: Date }] | [];
+      expect(tool?.toolName).toBe('Read');
+      expect(tool?.toolInput).toMatchObject({ file_path: '/tmp/example.txt' });
+      expect(tool?.timestamp).toBeInstanceOf(Date);
+    });
+
+    it('updates tool result on tool_result event', async () => {
+      const user = userEvent.setup();
+      mockStoreState.sessionId = 'test-session';
+      mockStoreState.isStreaming = false;
+
+      const { sendAndStream } = await import('@/services/sse');
+      vi.mocked(sendAndStream).mockImplementation((_sessionId, _message, options) => {
+        options.onEvent({
+          type: 'tool_result',
+          tool_output: 'done',
+          is_cached: true,
+        });
+        options.onComplete();
+        return Promise.resolve();
+      });
+
+      render(<ChatPanel />);
+
+      await user.type(screen.getByRole('textbox'), 'Hello');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+
+      await waitFor(() => {
+        expect(mockUpdateToolResult).toHaveBeenCalledWith('done', true);
+      });
+      expect(mockSetToolError).not.toHaveBeenCalled();
+    });
+
+    it('marks tool error when tool_result indicates error', async () => {
+      const user = userEvent.setup();
+      mockStoreState.sessionId = 'test-session';
+      mockStoreState.isStreaming = false;
+
+      const { sendAndStream } = await import('@/services/sse');
+      vi.mocked(sendAndStream).mockImplementation((_sessionId, _message, options) => {
+        options.onEvent({
+          type: 'tool_result',
+          tool_output: 'Error: boom',
+        });
+        options.onComplete();
+        return Promise.resolve();
+      });
+
+      render(<ChatPanel />);
+
+      await user.type(screen.getByRole('textbox'), 'Hello');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+
+      await waitFor(() => {
+        expect(mockSetToolError).toHaveBeenCalledWith('Error: boom');
+      });
+      expect(mockUpdateToolResult).not.toHaveBeenCalled();
     });
   });
 
@@ -520,6 +636,7 @@ describe('ChatPanel', () => {
       await user.click(screen.getByRole('button', { name: /clear/i }));
 
       expect(mockClearTodos).toHaveBeenCalledTimes(1);
+      expect(mockClearTools).toHaveBeenCalledTimes(1);
       expect(mockClearSession).toHaveBeenCalledTimes(1);
     });
   });
