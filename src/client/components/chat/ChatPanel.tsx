@@ -199,7 +199,8 @@ export function ChatPanel(): React.ReactElement {
               if (safeTools.length > 0) {
                 const toolNames = safeTools.map((d) => d.tool_name);
                 addAllowedTools(toolNames);
-                // F7 FIX: Accurate toast - auto-retry for safe tools not yet implemented
+                // NOTE: Auto-retry for safe tools not yet implemented
+                // User must resend message after tools are granted
                 setToastMessage(`Granted ${toolNames.join(', ')} access. Please resend your message.`);
                 finalizeLastMessage({
                   input_tokens: event.input_tokens,

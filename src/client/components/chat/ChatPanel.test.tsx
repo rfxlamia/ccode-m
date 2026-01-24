@@ -589,7 +589,7 @@ describe('ChatPanel', () => {
           input_tokens: 100,
           output_tokens: 50,
           permission_denials: [
-            { tool_name: 'Read', tool_input: { file_path: '/tmp/test.txt' } },
+            { tool_name: 'Read', tool_use_id: 'tool_use_auto_grant_123', tool_input: { file_path: '/tmp/test.txt' } },
           ],
         });
         options.onComplete();
@@ -623,7 +623,7 @@ describe('ChatPanel', () => {
           input_tokens: 100,
           output_tokens: 50,
           permission_denials: [
-            { tool_name: 'Bash', tool_input: { command: 'rm -rf /' } },
+            { tool_name: 'Bash', tool_use_id: 'tool_use_risky_456', tool_input: { command: 'rm -rf /' } },
           ],
         });
         options.onComplete();
