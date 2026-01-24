@@ -13,6 +13,15 @@ import { z } from 'zod';
 // SSE Event Types (7 types per architecture)
 // ============================================
 
+// Permission denial schema (from CLI result event)
+export const PermissionDenialSchema = z.object({
+  tool_name: z.string(),
+  tool_use_id: z.string(),
+  tool_input: z.record(z.unknown()),
+});
+
+export type PermissionDenial = z.infer<typeof PermissionDenialSchema>;
+
 export const SSEEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('message'), content: z.string() }),
   z.object({ type: z.literal('tool_use'), tool_name: z.string(), tool_input: z.unknown() }),
@@ -41,6 +50,7 @@ export const SSEEventSchema = z.discriminatedUnion('type', [
     type: z.literal('complete'),
     input_tokens: z.number(),
     output_tokens: z.number(),
+    permission_denials: z.array(PermissionDenialSchema).optional(),
   }),
   z.object({ type: z.literal('error'), error_message: z.string(), error_code: z.string() }),
 ]);
@@ -107,6 +117,7 @@ export interface CLISession {
 export interface SpawnOptions {
   continue?: boolean;  // Use --continue flag for session continuity
   resume?: string;     // Use --resume <id> for specific session
+  allowedTools?: string[];  // Tools to auto-allow without permission prompt
 }
 
 // ============================================
@@ -143,6 +154,7 @@ export interface ToolInvocation {
   isCached?: boolean | undefined;
   timestamp: Date;
   isExpanded: boolean;
+  permissionDenied?: PermissionDenial[] | undefined;  // Permission denials for retry flow
 }
 
 // ============================================

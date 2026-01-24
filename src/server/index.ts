@@ -51,6 +51,14 @@ export function getGlobalSession(): CLISession | null {
 }
 
 /**
+ * Set the global CLI session.
+ * Used for session restart with new permissions.
+ */
+export function setGlobalSession(session: CLISession | null): void {
+  globalSession = session;
+}
+
+/**
  * Reset the global CLI session.
  * Terminates current session and spawns a new one.
  * @returns New session ID or null if spawn fails

@@ -2,12 +2,14 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { MessageCircleIcon, Trash2Icon, Loader2Icon } from 'lucide-react';
 import { ChatInput, type ChatInputHandle } from './ChatInput';
 import { VirtualizedMessageList } from './VirtualizedMessageList';
+import { PermissionDenied } from './PermissionDenied';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUnifiedStream } from '@/hooks/useUnifiedStream';
 import { useChatStore } from '@/stores/chatStore';
 import { useProgressStore } from '@/stores/progressStore';
 import { useToolStore } from '@/stores/toolStore';
 import { sendAndStream, getSessionId } from '@/services/sse';
+import { isToolSafe } from '@shared/constants';
 
 /** Props for example prompt buttons */
 export type ExamplePromptProps = {
@@ -33,6 +35,7 @@ export function ExamplePrompt({ text, onClick }: ExamplePromptProps): React.Reac
 
 export function ChatPanel(): React.ReactElement {
   const [inputValue, setInputValue] = useState('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const chatInputRef = useRef<ChatInputHandle>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -43,6 +46,9 @@ export function ChatPanel(): React.ReactElement {
     isResetting,
     sessionId,
     error,
+    allowedTools,
+    lastMessage,
+    pendingRetry,
     addMessage,
     appendToLastMessage,
     finalizeLastMessage,
@@ -50,6 +56,11 @@ export function ChatPanel(): React.ReactElement {
     setSessionId,
     setError,
     clearSession,
+    addAllowedTools,
+    setLastMessage,
+    setPendingRetry,
+    clearPendingRetry,
+    retryWithPermission,
   } = useChatStore();
   const setTodos = useProgressStore((state) => state.setTodos);
   const clearTodos = useProgressStore((state) => state.clearTodos);
@@ -70,6 +81,18 @@ export function ChatPanel(): React.ReactElement {
   useKeyboard({
     focusChat: focusInput,
   });
+
+  // Auto-dismiss toast after 3 seconds
+  useEffect(() => {
+    if (toastMessage) {
+      const timeout = setTimeout(() => {
+        setToastMessage(null);
+      }, 3000);
+      return () => {
+        clearTimeout(timeout);
+      };
+    }
+  }, [toastMessage]);
 
   // Initialize session on mount with cleanup
   useEffect(() => {
@@ -101,6 +124,9 @@ export function ChatPanel(): React.ReactElement {
   const handleSend = useCallback(
     (message: string) => {
       if (!sessionId || isStreaming) return;
+
+      // Store message for potential retry
+      setLastMessage(message);
 
       // Cancel any previous streaming
       abortControllerRef.current?.abort();
@@ -152,6 +178,40 @@ export function ChatPanel(): React.ReactElement {
               updateToolResult(event.tool_output, event.is_cached);
             }
           } else if (event.type === 'complete') {
+            // CRITICAL: Handle permission_denials BEFORE clearTools()
+            if (event.permission_denials && event.permission_denials.length > 0 && lastMessage) {
+              const allDenied = event.permission_denials;
+              const safeTools = allDenied.filter((d) => isToolSafe(d.tool_name));
+              const riskyTools = allDenied.filter((d) => !isToolSafe(d.tool_name));
+
+              // If ANY risky tools, show UI for ALL (don't auto-retry partial)
+              if (riskyTools.length > 0) {
+                setPendingRetry(lastMessage, allDenied);
+                finalizeLastMessage({
+                  input_tokens: event.input_tokens,
+                  output_tokens: event.output_tokens,
+                });
+                clearTodos();
+                return; // Don't clearTools - wait for user action
+              }
+
+              // All safe → auto-retry
+              if (safeTools.length > 0) {
+                const toolNames = safeTools.map((d) => d.tool_name);
+                addAllowedTools(toolNames);
+                // F7 FIX: Accurate toast - auto-retry for safe tools not yet implemented
+                setToastMessage(`Granted ${toolNames.join(', ')} access. Please resend your message.`);
+                finalizeLastMessage({
+                  input_tokens: event.input_tokens,
+                  output_tokens: event.output_tokens,
+                });
+                clearTodos();
+                clearTools();
+                return;
+              }
+            }
+
+            // Normal complete flow (no permission denials)
             finalizeLastMessage({
               input_tokens: event.input_tokens,
               output_tokens: event.output_tokens,
@@ -195,6 +255,10 @@ export function ChatPanel(): React.ReactElement {
       updateToolResult,
       setToolError,
       clearTools,
+      setLastMessage,
+      lastMessage,
+      addAllowedTools,
+      setPendingRetry,
     ]
   );
 
@@ -220,6 +284,111 @@ export function ChatPanel(): React.ReactElement {
       clearTools();
       void clearSession();
     }, [isStreaming, isResetting, clearTodos, clearTools, clearSession]);
+
+  // Handle permission denied - Allow & Retry
+  const handleAllowPermission = useCallback(() => {
+    if (!pendingRetry || !lastMessage || isStreaming) return;
+
+    // Cancel any previous streaming
+    abortControllerRef.current?.abort();
+
+    // Create new abort controller for retry
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    // Add denied tools to allowed list
+    const toolNames = pendingRetry.denials.map((d) => d.tool_name);
+    const allAllowedTools = Array.from(allowedTools).concat(toolNames);
+
+    setStreaming(true);
+    setError(null);
+
+    // Add assistant message placeholder for retry
+    addMessage({
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      isStreaming: true,
+    });
+
+    // Use retryWithPermission to restart session and resend message
+    void retryWithPermission(lastMessage, allAllowedTools, {
+      signal: abortController.signal,
+      onEvent: (event) => {
+        if (event.type === 'message') {
+          appendToLastMessage(event.content);
+        } else if (event.type === 'tool_use') {
+          const toolInput =
+            typeof event.tool_input === 'object' && event.tool_input !== null
+              ? (event.tool_input as Record<string, unknown>)
+              : {};
+          addToolUse({
+            toolName: event.tool_name,
+            toolInput,
+            timestamp: new Date(),
+          });
+        } else if (event.type === 'tool_result') {
+          if (event.tool_output.startsWith('Error:')) {
+            setToolError(event.tool_output);
+          } else {
+            updateToolResult(event.tool_output, event.is_cached);
+          }
+        } else if (event.type === 'complete') {
+          finalizeLastMessage({
+            input_tokens: event.input_tokens,
+            output_tokens: event.output_tokens,
+          });
+          clearTodos();
+          clearTools();
+        } else if (event.type === 'progress') {
+          const todosWithIds = event.todos.map((todo, index) => ({
+            id: `todo-${String(index)}`,
+            content: todo.content,
+            status: todo.status,
+            activeForm: todo.active_form,
+          }));
+          setTodos(todosWithIds);
+        } else if (event.type === 'error') {
+          setError(event.error_message);
+          finalizeLastMessage();
+        }
+      },
+      onError: (err: Error) => {
+        setError(err.message);
+        finalizeLastMessage();
+        setStreaming(false);
+      },
+      onComplete: () => {
+        setStreaming(false);
+        abortControllerRef.current = null;
+        setToastMessage(`Retried with ${toolNames.join(', ')} permissions`);
+      },
+    });
+  }, [
+    pendingRetry,
+    lastMessage,
+    isStreaming,
+    allowedTools,
+    addMessage,
+    appendToLastMessage,
+    finalizeLastMessage,
+    setStreaming,
+    setError,
+    setTodos,
+    clearTodos,
+    addToolUse,
+    updateToolResult,
+    setToolError,
+    clearTools,
+    retryWithPermission,
+  ]);
+
+  // Handle permission denied - Deny
+  const handleDenyPermission = useCallback(() => {
+    clearPendingRetry();
+    setToastMessage('Permission denied. You may try again with a different request.');
+  }, [clearPendingRetry]);
 
   return (
     <main
@@ -253,6 +422,11 @@ export function ChatPanel(): React.ReactElement {
       {items.length > 0 ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           <VirtualizedMessageList items={items} className="flex-1" />
+          {toastMessage && (
+            <div className="p-3 mx-4 mb-2 rounded-lg bg-green-50 text-green-700 border border-green-200">
+              {toastMessage}
+            </div>
+          )}
           {error && (
             <div className="p-3 mx-4 mb-2 rounded-lg bg-destructive/10 text-destructive">
               Error: {error}
@@ -288,6 +462,17 @@ export function ChatPanel(): React.ReactElement {
               onClick={handlePromptClick}
             />
           </section>
+        </div>
+      )}
+
+      {/* Permission denied UI */}
+      {pendingRetry && (
+        <div className="px-4 pb-2">
+          <PermissionDenied
+            denials={pendingRetry.denials}
+            onAllow={handleAllowPermission}
+            onDeny={handleDenyPermission}
+          />
         </div>
       )}
 

@@ -5,8 +5,8 @@
  * Single source of truth for per-session line buffering.
  */
 
-import type { SSEEvent } from '@shared/types.js';
-import { SSEEventSchema } from '@shared/types.js';
+import type { SSEEvent, PermissionDenial } from '@shared/types.js';
+import { SSEEventSchema, PermissionDenialSchema } from '@shared/types.js';
 import { ErrorCodes, ErrorMessages } from '@shared/errors.js';
 import { log } from '../utils/logger.js';
 
@@ -245,10 +245,25 @@ function mapResultEvent(event: Record<string, unknown>): SSEEvent {
   const inputTokens = usage?.input_tokens ?? (event.input_tokens as number | undefined) ?? 0;
   const outputTokens = usage?.output_tokens ?? (event.output_tokens as number | undefined) ?? 0;
 
+  // Parse permission_denials if present
+  const rawDenials = event.permission_denials as unknown[] | undefined;
+  let permissionDenials: PermissionDenial[] | undefined = undefined;
+
+  if (Array.isArray(rawDenials) && rawDenials.length > 0) {
+    permissionDenials = rawDenials
+      .filter((d): d is Record<string, unknown> => d !== null && typeof d === 'object')
+      .map((d) => {
+        const validation = PermissionDenialSchema.safeParse(d);
+        return validation.success ? validation.data : null;
+      })
+      .filter((d): d is PermissionDenial => d !== null);
+  }
+
   return {
     type: 'complete',
     input_tokens: inputTokens,
     output_tokens: outputTokens,
+    permission_denials: permissionDenials,
   };
 }
 

@@ -6,9 +6,10 @@
  */
 
 import type { FastifyPluginCallback } from 'fastify';
-import { getSession } from '../services/cli-process.js';
+import { getSession, terminateSession, spawnCLISession } from '../services/cli-process.js';
 import { sendMessage } from '../services/cli-protocol.js';
 import type { SSEEvent } from '@shared/types.js';
+import { isKnownTool, MAX_TOOL_NAME_LENGTH } from '@shared/constants.js';
 import { log } from '../utils/logger.js';
 
 // ============================================
@@ -50,6 +51,87 @@ export const chatRoutes: FastifyPluginCallback = (server, _opts, done) => {
 
     log.info({ newSessionId }, 'Session reset successfully');
     return await reply.send({ sessionId: newSessionId });
+  });
+
+  /**
+   * POST /api/chat/restart
+   * Restart session with resume + allowedTools for permission retry flow.
+   * Terminates current session and spawns new one with preserved conversation.
+   */
+  server.post<{
+    Body: { sessionId?: string; allowedTools?: unknown };
+  }>('/api/chat/restart', async (request, reply) => {
+    const { sessionId, allowedTools } = request.body;
+
+    // Validation (runtime check - request body could be malformed)
+    if (!sessionId || typeof sessionId !== 'string') {
+      return await reply.status(400).send({ error: 'sessionId is required' });
+    }
+    if (!allowedTools || !Array.isArray(allowedTools)) {
+      return await reply.status(400).send({ error: 'allowedTools is required' });
+    }
+
+    // F3 FIX: Validate allowedTools array to prevent command injection
+    if (allowedTools.length > 20) {
+      return await reply.status(400).send({ error: 'allowedTools exceeds maximum allowed (20)' });
+    }
+
+    // Validate each tool name
+    const invalidTools: string[] = [];
+    const sanitizedTools: string[] = [];
+    for (const tool of allowedTools) {
+      // Must be string
+      if (typeof tool !== 'string') {
+        return await reply.status(400).send({ error: 'allowedTools must contain only strings' });
+      }
+      // Length check (prevents DoS)
+      if (tool.length > MAX_TOOL_NAME_LENGTH) {
+        return await reply.status(400).send({ error: `Tool name exceeds maximum length (${String(MAX_TOOL_NAME_LENGTH)})` });
+      }
+      // Must match alphanumeric pattern (no special chars that could be CLI flags)
+      if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(tool)) {
+        return await reply.status(400).send({ error: `Invalid tool name format: ${tool}` });
+      }
+      // Check if known tool (MCP tools are allowed but logged as warning)
+      if (!isKnownTool(tool)) {
+        log.warn({ tool }, 'Unknown tool in allowedTools (MCP or new tool)');
+        invalidTools.push(tool);
+      }
+      // Add to sanitized list (dedupe)
+      if (!sanitizedTools.includes(tool)) {
+        sanitizedTools.push(tool);
+      }
+    }
+
+    // Get current session to retrieve projectPath
+    const session = getSession(sessionId);
+    if (!session) {
+      log.error({ sessionId }, 'Session not found for restart');
+      return await reply.status(404).send({ error: 'Session not found' });
+    }
+
+    const projectPath = session.projectPath;
+
+    // Terminate current session (F11 FIX: using static import)
+    const terminated = await terminateSession(sessionId);
+    if (!terminated) {
+      log.error({ sessionId }, 'Failed to terminate session for restart');
+      return await reply.status(500).send({ error: 'Failed to terminate session' });
+    }
+
+    // Spawn new session with resume + allowedTools (F11 FIX: using static import)
+    const newSession = spawnCLISession(projectPath, undefined, {
+      resume: sessionId,  // Restore conversation
+      allowedTools: sanitizedTools,  // Apply sanitized permissions
+    });
+
+    // F5 FIX: Update global session with full CLISession object
+    const { setGlobalSession } = await import('../index.js');
+    setGlobalSession(newSession);
+
+    log.info({ oldSessionId: sessionId, newSessionId: newSession.sessionId, allowedTools: sanitizedTools }, 'Session restarted with permissions');
+
+    return await reply.send({ sessionId: newSession.sessionId });
   });
 
   /**
@@ -194,9 +276,14 @@ export const chatRoutes: FastifyPluginCallback = (server, _opts, done) => {
 
       return await reply.send(result);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      log.error({ sessionId, error: errorMessage }, 'Error processing chat request');
-      return await reply.status(500).send({ error: errorMessage });
+      // F13 FIX: Sanitize error messages - don't expose internal details
+      const rawMessage = error instanceof Error ? error.message : 'Unknown error';
+      // Only expose safe error messages, hide internal paths/stack traces
+      const safeMessage = rawMessage.includes('/') || rawMessage.includes('\\')
+        ? 'Internal server error'
+        : rawMessage.substring(0, 200);  // Length limit
+      log.error({ sessionId, error: rawMessage }, 'Error processing chat request');
+      return await reply.status(500).send({ error: safeMessage });
     } finally {
       // Fix F7: Decrement counter when request completes
       indexModule.decrementActiveRequests();

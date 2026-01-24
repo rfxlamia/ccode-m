@@ -91,6 +91,11 @@ export function spawnCLISession(
     args.push('--resume', options.resume);
   }
 
+  // Option C: Allowed tools for permission retry flow
+  if (options?.allowedTools && options.allowedTools.length > 0) {
+    args.push('--allowedTools', ...options.allowedTools);
+  }
+
   // 3. Spawn the process
   const cliProcess = spawn('claude', args, {
     cwd: projectPath,

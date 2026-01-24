@@ -31,6 +31,16 @@ const mockAddToolUse = vi.fn();
 const mockUpdateToolResult = vi.fn();
 const mockSetToolError = vi.fn();
 const mockClearTools = vi.fn();
+
+// Permission-related mocks
+const mockAddAllowedTools = vi.fn();
+const mockSetLastMessage = vi.fn();
+const mockSetPendingRetry = vi.fn();
+const mockClearPendingRetry = vi.fn();
+const mockResetRetryCount = vi.fn();
+const mockIncrementRetryCount = vi.fn();
+const mockRetryWithPermission = vi.fn();
+
 let mockTools: ToolInvocation[] = [];
 
 // Default mock state
@@ -47,6 +57,12 @@ let mockStoreState = {
   sessionId: null as string | null,
   error: null as string | null,
   isAtBottom: true,
+  // Permission state
+  allowedTools: new Set<string>(),
+  lastMessage: null as string | null,
+  pendingRetry: null as { message: string; denials: unknown[] } | null,
+  retryCount: 0,
+  MAX_RETRIES: 3,
 };
 
 vi.mock('react-virtuoso', () => {
@@ -100,6 +116,14 @@ vi.mock('@/stores/chatStore', () => ({
     clearMessages: vi.fn(),
     clearSession: mockClearSession,
     setResetting: vi.fn(),
+    // Permission actions
+    addAllowedTools: mockAddAllowedTools,
+    setLastMessage: mockSetLastMessage,
+    setPendingRetry: mockSetPendingRetry,
+    clearPendingRetry: mockClearPendingRetry,
+    resetRetryCount: mockResetRetryCount,
+    incrementRetryCount: mockIncrementRetryCount,
+    retryWithPermission: mockRetryWithPermission,
   })),
 }));
 
@@ -157,6 +181,12 @@ describe('ChatPanel', () => {
       sessionId: null,
       error: null,
       isAtBottom: true,
+      // Permission state
+      allowedTools: new Set<string>(),
+      lastMessage: null,
+      pendingRetry: null,
+      retryCount: 0,
+      MAX_RETRIES: 3,
     };
     mockTools = [];
   });

@@ -125,3 +125,34 @@ export async function resetSession(signal?: AbortSignal): Promise<string> {
   const data = (await response.json()) as SessionResponse;
   return data.sessionId;
 }
+
+/**
+ * Restart session with resume + allowedTools for permission retry flow.
+ * Terminates current session and spawns new one with preserved conversation.
+ * @param sessionId - Current session ID to restart from
+ * @param allowedTools - Tools to auto-allow
+ * @returns New session ID
+ * @throws Error if restart fails
+ */
+export async function restartSessionWithPermissions(
+  sessionId: string,
+  allowedTools: string[],
+  signal?: AbortSignal
+): Promise<string> {
+  const response = await fetch('/api/chat/restart', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId, allowedTools }),
+    ...(signal && { signal }),
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json().catch(() => ({ error: 'Unknown error' }))) as {
+      error: string;
+    };
+    throw new Error(errorData.error || `Restart failed: ${String(response.status)}`);
+  }
+
+  const data = (await response.json()) as SessionResponse;
+  return data.sessionId;
+}
