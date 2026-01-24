@@ -3,18 +3,12 @@ import {
   useMemo,
   lazy,
   Suspense,
-  useEffect,
-  useState,
-  type ComponentType,
-  type CSSProperties,
 } from 'react';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
-import type { SyntaxHighlighterProps } from 'react-syntax-highlighter';
+import { CodeBlock } from './CodeBlock';
 
 const ReactMarkdown = lazy(() => import('react-markdown'));
-
-type SyntaxTheme = Record<string, CSSProperties>;
 
 type TypewriterMarkdownProps = {
   content: string;
@@ -80,44 +74,6 @@ export const TypewriterMarkdown = memo(function TypewriterMarkdown({
     </div>
   );
 });
-
-function CodeBlock({ language, children }: { language: string; children: string }): React.ReactElement {
-  const [Highlighter, setHighlighter] = useState<ComponentType<SyntaxHighlighterProps> | null>(
-    null
-  );
-  const [style, setStyle] = useState<SyntaxTheme | null>(null);
-
-  useEffect(() => {
-    let isActive = true;
-
-    const loadHighlighter = import('react-syntax-highlighter/dist/esm/prism').then(
-      (mod) => mod.default as ComponentType<SyntaxHighlighterProps>
-    );
-    const loadStyle = import('react-syntax-highlighter/dist/esm/styles/prism/one-dark').then(
-      (mod) => mod.default as SyntaxTheme
-    );
-
-    void Promise.all([loadHighlighter, loadStyle]).then(([highlighterComponent, styleTheme]) => {
-      if (!isActive) return;
-      setHighlighter(() => highlighterComponent);
-      setStyle(styleTheme);
-    });
-
-    return () => {
-      isActive = false;
-    };
-  }, []);
-
-  if (!Highlighter || !style) {
-    return <pre className="bg-muted p-2">{children}</pre>;
-  }
-
-  return (
-    <Highlighter language={language} style={style} PreTag="div">
-      {children.replace(/\n$/, '')}
-    </Highlighter>
-  );
-}
 
 function sanitizePartialMarkdown(text: string): string {
   let result = text;

@@ -17,6 +17,8 @@ import {
 import type { ToolInvocation } from '@shared/types';
 import { useToolStore } from '@/stores/toolStore';
 import { cn } from '@/lib/utils';
+import { getStringInput } from '@/lib/languageDetection';
+import { ToolResult } from './ToolResult';
 
 const TOOL_ICONS: Record<string, LucideIcon> = {
   read: FileText,
@@ -54,18 +56,6 @@ function formatUnknownValue(value: unknown): string {
   if (Array.isArray(value)) return `array(${String(value.length)})`;
   if (typeof value === 'object') return 'object';
   return 'unknown';
-}
-
-function getStringInput(
-  input: Record<string, unknown>,
-  key: string,
-  fallback: string
-): string {
-  const value = input[key];
-  if (typeof value === 'string' && value.trim().length > 0) {
-    return value;
-  }
-  return fallback;
 }
 
 function formatToolParams(toolName: string, input: Record<string, unknown>): string {
@@ -179,6 +169,13 @@ export const ToolCard = memo(function ToolCard({ tool }: ToolCardProps): React.R
           <p className="font-mono text-sm text-muted-foreground">{formattedParams}</p>
           {tool.status === 'error' && tool.errorMessage && (
             <p className="mt-2 text-sm text-destructive">{tool.errorMessage}</p>
+          )}
+          {tool.status === 'complete' && tool.result && (
+            <ToolResult
+              result={tool.result}
+              toolName={tool.toolName}
+              toolInput={tool.toolInput}
+            />
           )}
         </div>
       )}

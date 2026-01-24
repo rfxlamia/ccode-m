@@ -117,4 +117,66 @@ describe('src/client/components/chat/ToolCard.tsx', () => {
     fireEvent.click(screen.getByRole('button'));
     expect(screen.getByTestId('tool-params-expanded')).toBeInTheDocument();
   });
+
+  describe('ToolResult integration', () => {
+    it('renders ToolResult when tool is complete and has result', () => {
+      const tool = createTool({
+        id: 'tool-result-1',
+        status: 'complete',
+        isExpanded: true,
+        result: 'const x = 42;',
+        toolName: 'read',
+        toolInput: { file_path: '/test/file.ts' },
+      });
+
+      render(<ToolCard tool={tool} />);
+
+      // Should show the result content
+      expect(screen.getByText('const x = 42;')).toBeInTheDocument();
+    });
+
+    it('does NOT render ToolResult when tool is pending', () => {
+      const tool = createTool({
+        id: 'tool-result-2',
+        status: 'pending',
+        isExpanded: true,
+        toolName: 'read',
+      });
+
+      render(<ToolCard tool={tool} />);
+
+      // ToolResult should not be rendered for pending tools
+      expect(screen.queryByTestId('tool-result-content')).not.toBeInTheDocument();
+    });
+
+    it('does NOT render ToolResult when tool has no result', () => {
+      const tool = createTool({
+        id: 'tool-result-3',
+        status: 'complete',
+        isExpanded: true,
+        toolName: 'read',
+      });
+
+      render(<ToolCard tool={tool} />);
+
+      // ToolResult should not be rendered when result is undefined
+      expect(screen.queryByTestId('tool-result-content')).not.toBeInTheDocument();
+    });
+
+    it('does NOT render ToolResult when tool has error', () => {
+      const tool = createTool({
+        id: 'tool-result-4',
+        status: 'error',
+        isExpanded: true,
+        errorMessage: 'File not found',
+        toolName: 'read',
+      });
+
+      render(<ToolCard tool={tool} />);
+
+      // Should show error message but not ToolResult
+      expect(screen.getByText('File not found')).toBeInTheDocument();
+      expect(screen.queryByTestId('tool-result-content')).not.toBeInTheDocument();
+    });
+  });
 });
