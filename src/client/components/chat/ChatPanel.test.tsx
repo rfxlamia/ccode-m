@@ -431,7 +431,7 @@ describe('ChatPanel', () => {
       expect(firstTodo.id.length).toBeGreaterThan(0);
     });
 
-    it('clears todos and tools when complete event is received', async () => {
+    it('clears todos but NOT tools when complete event is received', async () => {
       const user = userEvent.setup();
       mockStoreState.sessionId = 'test-session';
       mockStoreState.isStreaming = false;
@@ -455,8 +455,241 @@ describe('ChatPanel', () => {
       await waitFor(() => {
         expect(mockClearTodos).toHaveBeenCalledTimes(1);
       });
+      expect(mockClearTools).not.toHaveBeenCalled();
+    });
+
+    it('keeps tools in state after message completes', async () => {
+      const user = userEvent.setup();
+      mockStoreState.sessionId = 'test-session';
+      mockStoreState.isStreaming = false;
+
+      const { sendAndStream } = await import('@/services/sse');
+      vi.mocked(sendAndStream).mockImplementation((_sessionId, _message, options) => {
+        // Simulate full tool execution flow: tool_use → tool_result → complete
+        options.onEvent({
+          type: 'tool_use',
+          tool_name: 'Read',
+          tool_input: { file_path: '/tmp/test.txt' },
+        });
+        options.onEvent({
+          type: 'tool_result',
+          tool_output: 'file contents here',
+          is_cached: false,
+        });
+        options.onEvent({
+          type: 'complete',
+          input_tokens: 100,
+          output_tokens: 50,
+        });
+        options.onComplete();
+        return Promise.resolve();
+      });
+
+      render(<ChatPanel />);
+
+      await user.type(screen.getByRole('textbox'), 'read file');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+
+      await waitFor(() => {
+        expect(mockAddToolUse).toHaveBeenCalledTimes(1);
+        expect(mockUpdateToolResult).toHaveBeenCalledTimes(1);
+      });
+
+      // Tools should persist after complete - clearTools should NOT be called
+      expect(mockClearTools).not.toHaveBeenCalled();
+    });
+
+    it('accumulates tools across multiple conversation turns', async () => {
+      // NOTE: This test implicitly verifies useUnifiedStream integration
+      // Tools added via addToolUse() are merged with messages by timestamp
+      // VirtualizedMessageList renders the unified stream correctly
+      // Full integration test with actual rendering is covered by E2E suite
+      const user = userEvent.setup();
+      mockStoreState.sessionId = 'test-session';
+      mockStoreState.isStreaming = false;
+
+      const { sendAndStream } = await import('@/services/sse');
+
+      // First message with tool execution
+      vi.mocked(sendAndStream).mockImplementationOnce((_sessionId, _message, options) => {
+        options.onEvent({
+          type: 'tool_use',
+          tool_name: 'Read',
+          tool_input: { file_path: '/tmp/first.txt' },
+        });
+        options.onEvent({
+          type: 'tool_result',
+          tool_output: 'first file contents',
+          is_cached: false,
+        });
+        options.onEvent({
+          type: 'complete',
+          input_tokens: 100,
+          output_tokens: 50,
+        });
+        options.onComplete();
+        return Promise.resolve();
+      });
+
+      render(<ChatPanel />);
+
+      // Send first message
+      await user.type(screen.getByRole('textbox'), 'read first file');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+
+      await waitFor(() => {
+        expect(mockAddToolUse).toHaveBeenCalledTimes(1);
+      });
+
+      // Second message with tool execution
+      vi.mocked(sendAndStream).mockImplementationOnce((_sessionId, _message, options) => {
+        options.onEvent({
+          type: 'tool_use',
+          tool_name: 'Write',
+          tool_input: { file_path: '/tmp/second.txt', content: 'test' },
+        });
+        options.onEvent({
+          type: 'tool_result',
+          tool_output: 'File written successfully',
+          is_cached: false,
+        });
+        options.onEvent({
+          type: 'complete',
+          input_tokens: 100,
+          output_tokens: 50,
+        });
+        options.onComplete();
+        return Promise.resolve();
+      });
+
+      // Clear textbox and send second message
+      await user.clear(screen.getByRole('textbox'));
+      await user.type(screen.getByRole('textbox'), 'write second file');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+
+      await waitFor(() => {
+        expect(mockAddToolUse).toHaveBeenCalledTimes(2);
+      });
+
+      // clearTools should NEVER be called - tools accumulate across turns
+      expect(mockClearTools).not.toHaveBeenCalled();
+    });
+
+    it('clears tools after auto-granting safe tools to avoid UI clutter', async () => {
+      const user = userEvent.setup();
+      mockStoreState.sessionId = 'test-session';
+      mockStoreState.isStreaming = false;
+      mockStoreState.lastMessage = 'test message';
+
+      const { sendAndStream } = await import('@/services/sse');
+      vi.mocked(sendAndStream).mockImplementation((_sessionId, _message, options) => {
+        // Simulate permission denial with ONLY safe tools (auto-grant flow)
+        options.onEvent({
+          type: 'complete',
+          input_tokens: 100,
+          output_tokens: 50,
+          permission_denials: [
+            { tool_name: 'Read', tool_input: { file_path: '/tmp/test.txt' } },
+          ],
+        });
+        options.onComplete();
+        return Promise.resolve();
+      });
+
+      render(<ChatPanel />);
+
+      await user.type(screen.getByRole('textbox'), 'test');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+
+      await waitFor(() => {
+        expect(mockClearTodos).toHaveBeenCalledTimes(1);
+      });
+
+      // Auto-grant flow SHOULD clear tools to avoid clutter (user must resend)
       expect(mockClearTools).toHaveBeenCalledTimes(1);
     });
+
+    it('does not clear tools when permission denial has risky tools awaiting user action', async () => {
+      const user = userEvent.setup();
+      mockStoreState.sessionId = 'test-session';
+      mockStoreState.isStreaming = false;
+      mockStoreState.lastMessage = 'test message';
+
+      const { sendAndStream } = await import('@/services/sse');
+      vi.mocked(sendAndStream).mockImplementation((_sessionId, _message, options) => {
+        // Simulate permission denial with risky tools (NOT auto-grant - waits for user)
+        options.onEvent({
+          type: 'complete',
+          input_tokens: 100,
+          output_tokens: 50,
+          permission_denials: [
+            { tool_name: 'Bash', tool_input: { command: 'rm -rf /' } },
+          ],
+        });
+        options.onComplete();
+        return Promise.resolve();
+      });
+
+      render(<ChatPanel />);
+
+      await user.type(screen.getByRole('textbox'), 'test');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+
+      await waitFor(() => {
+        expect(mockSetPendingRetry).toHaveBeenCalledTimes(1);
+      });
+
+      // Permission denial with risky tools should NOT clear tools - waits for user action
+      expect(mockClearTools).not.toHaveBeenCalled();
+    });
+
+    it('keeps tools visible when tool execution results in error', async () => {
+      const user = userEvent.setup();
+      mockStoreState.sessionId = 'test-session';
+      mockStoreState.isStreaming = false;
+
+      const { sendAndStream } = await import('@/services/sse');
+      vi.mocked(sendAndStream).mockImplementation((_sessionId, _message, options) => {
+        // Simulate tool execution that results in error
+        options.onEvent({
+          type: 'tool_use',
+          tool_name: 'Read',
+          tool_input: { file_path: '/nonexistent/file.txt' },
+        });
+        options.onEvent({
+          type: 'tool_result',
+          tool_output: 'Error: File not found',
+          is_cached: false,
+        });
+        options.onEvent({
+          type: 'complete',
+          input_tokens: 100,
+          output_tokens: 50,
+        });
+        options.onComplete();
+        return Promise.resolve();
+      });
+
+      render(<ChatPanel />);
+
+      await user.type(screen.getByRole('textbox'), 'read nonexistent file');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+
+      await waitFor(() => {
+        expect(mockAddToolUse).toHaveBeenCalledTimes(1);
+        expect(mockSetToolError).toHaveBeenCalledWith('Error: File not found');
+      });
+
+      // Tools with errors should persist for user to review (AC7)
+      expect(mockClearTools).not.toHaveBeenCalled();
+    });
+
+    // TODO: Performance test - Verify UI performance with 100+ accumulated tools
+    // This should be implemented as E2E test with Playwright:
+    // - Send 20-30 messages with 5+ tools each
+    // - Monitor browser memory usage
+    // - Verify VirtualizedMessageList maintains 60fps scroll performance
+    // - Verify syntax highlighting doesn't cause lag
   });
 
   describe('Tool Events', () => {

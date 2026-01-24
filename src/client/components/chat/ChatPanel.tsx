@@ -217,7 +217,10 @@ export function ChatPanel(): React.ReactElement {
               output_tokens: event.output_tokens,
             });
             clearTodos();
-            clearTools();
+            // NOTE: clearTools() intentionally NOT called here
+            // Tools persist as conversation history (audit trail pattern)
+            // User can review past tool executions by scrolling up
+            // Tools only cleared on explicit "Clear conversation" action
           } else if (event.type === 'progress') {
             const todosWithIds = event.todos.map((todo, index) => ({
               id: `todo-${String(index)}`,
@@ -340,7 +343,8 @@ export function ChatPanel(): React.ReactElement {
             output_tokens: event.output_tokens,
           });
           clearTodos();
-          clearTools();
+          // NOTE: clearTools() intentionally NOT called in retry flow
+          // Tools from retry should persist for user verification (AC9)
         } else if (event.type === 'progress') {
           const todosWithIds = event.todos.map((todo, index) => ({
             id: `todo-${String(index)}`,
@@ -380,7 +384,6 @@ export function ChatPanel(): React.ReactElement {
     addToolUse,
     updateToolResult,
     setToolError,
-    clearTools,
     retryWithPermission,
   ]);
 
